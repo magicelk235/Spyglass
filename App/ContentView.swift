@@ -2,6 +2,8 @@ import SwiftUI
 import DrivePeakKit
 
 struct ContentView: View {
+    @EnvironmentObject private var auth: GoogleAuth
+
     // A live sample so users see exactly what a preview looks like.
     @State private var sampleType: WorkspaceType = .doc
 
@@ -56,6 +58,10 @@ struct ContentView: View {
                 .buttonStyle(.plain)
             }
 
+            Divider()
+
+            authSection
+
             Spacer()
 
             VStack(alignment: .leading, spacing: 6) {
@@ -69,6 +75,32 @@ struct ContentView: View {
         .padding(20)
         .frame(width: 340, alignment: .topLeading)
     }
+
+    @ViewBuilder
+    private var authSection: some View {
+        if let email = auth.email {
+            VStack(alignment: .leading, spacing: 4) {
+                Label(email, systemImage: "person.crop.circle.fill.badge.checkmark")
+                    .foregroundStyle(.green)
+                    .lineLimit(1)
+                    .font(.caption)
+                Button("Sign out") { auth.signOut() }
+                    .buttonStyle(.link)
+                    .font(.caption)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                Button {
+                    Task { try? await auth.signIn() }
+                } label: {
+                    Label("Sign in with Google", systemImage: "person.badge.key")
+                }
+                Text("Optional — enables rendered document previews.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 }
 
-#Preview { ContentView() }
+#Preview { ContentView().environmentObject(GoogleAuth()) }

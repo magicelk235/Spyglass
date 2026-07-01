@@ -75,10 +75,12 @@ private final class ContinuationBox {
 /// calls are awaited concurrently but that is fine — `await` releases the
 /// actor.
 @MainActor
-public final class GoogleAuth {
+public final class GoogleAuth: ObservableObject {
 
     private let store: TokenStore
     private let session: URLSession
+
+    @Published public private(set) var email: String?
 
     public init(store: TokenStore = TokenStore(), session: URLSession = .shared) {
         self.store = store
@@ -86,6 +88,17 @@ public final class GoogleAuth {
     }
 
     // MARK: - Public API
+
+    /// Populates `email` from a previously saved session (call on app launch).
+    public func restore() {
+        email = store.load()?.email
+    }
+
+    /// Clears saved tokens and resets the signed-in state.
+    public func signOut() {
+        try? store.clear()
+        email = nil
+    }
 
     /// Runs the full sign-in flow and saves tokens to the keychain.
     /// Throws `GoogleAuthError` on any failure.
@@ -131,6 +144,7 @@ public final class GoogleAuth {
 
         // 6. Persist.
         try store.save(tokens)
+        self.email = tokens.email
     }
 
     // MARK: - Listener
