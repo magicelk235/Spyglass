@@ -41,19 +41,26 @@ public final class DriveClient {
     // MARK: - Auth plumbing
 
     private func authedData(url: URL) async throws -> Data {
-        var token = try await validAccessToken()
+        var refreshed = false
+        var token = try await validAccessToken(didRefresh: &refreshed)
         var (data, status) = try await get(url, token: token)
-        if status == 401 {
-            token = try await refresh()          // one retry after refresh
+        if status == 401, !refreshed {
+            // ponytail: single-caller (one preview at a time); add actor isolation if DriveClient ever shared across concurrent callers
+            token = try await refresh()
             (data, status) = try await get(url, token: token)
         }
         guard (200..<300).contains(status) else { throw DriveError.http(status) }
         return data
     }
 
-    private func validAccessToken() async throws -> String {
+    /// Returns a valid access token. Sets `didRefresh` to true if a refresh was performed.
+    private func validAccessToken(didRefresh: inout Bool) async throws -> String {
         guard let t = store.load() else { throw DriveError.notAuthed }
-        return t.isExpired ? try await refresh() : t.accessToken
+        if t.isExpired {
+            didRefresh = true
+            return try await refresh()
+        }
+        return t.accessToken
     }
 
     private func get(_ url: URL, token: String) async throws -> (Data, Int) {
@@ -70,11 +77,15 @@ public final class DriveClient {
         var req = URLRequest(url: URL(string: GoogleOAuthEndpoints.token)!)
         req.httpMethod = "POST"
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        // FIX 3: percent-encode values so tokens with / + = don't corrupt the form body
+        func encode(_ s: String) -> String {
+            s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
+        }
         let body = [
-            "client_id": clientID,
-            "refresh_token": old.refreshToken,
-            "grant_type": "refresh_token",
-        ].map { "\($0.key)=\($0.value)" }.joined(separator: "&")
+            "client_id=\(encode(clientID))",
+            "refresh_token=\(encode(old.refreshToken))",
+            "grant_type=refresh_token",
+        ].joined(separator: "&")
         req.httpBody = Data(body.utf8)
 
         let (data, resp) = try await session.data(for: req)
