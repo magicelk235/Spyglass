@@ -37,8 +37,11 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
            let clientID = OAuthConfig.clientID(bundle: Bundle(for: PreviewViewController.self)),
            TokenStore().load() != nil {
 
-            if let pdfData = await fetchPDF(docID: stub.docID, clientID: clientID) {
-                showPDF(pdfData)
+            // Render only if the fetch succeeded AND the bytes are a loadable
+            // PDF; a false from showPDF (corrupt/non-PDF data) must fall through
+            // to Tier 0, never leave a blank PDFView.
+            if let pdfData = await fetchPDF(docID: stub.docID, clientID: clientID),
+               showPDF(pdfData) {
                 return
             }
             // Any failure falls through to Tier 0.
