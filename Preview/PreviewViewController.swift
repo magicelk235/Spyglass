@@ -9,13 +9,13 @@ private let log = Logger(subsystem: "com.drivepeak.app.preview", category: "prev
 
 /// Quick Look Preview Extension entry point.
 ///
-/// The extension's sandbox cannot resolve DNS (verified: every host fails with
-/// NSURLErrorDomain -1003), so it makes NO network calls. Tier 1 works by
-/// handoff: on every exportable preview it enqueues a fetch marker and wakes
-/// the app (headless menu-bar agent), which fetches the PDF export and writes
-/// the shared App Group cache. This controller renders whatever is cached —
-/// immediately on a hit, after a short poll on a miss — and otherwise shows
-/// the Tier 0 card. The preview is NEVER blank and NEVER hangs.
+/// The extension's sandbox is read-only in practice: no DNS (every host fails
+/// with -1003), no group-container writes, no shared-prefs writes, no
+/// launching the app. So the extension is a pure cache READER. The app (a
+/// menu-bar agent) discovers stub files on disk, pre-fetches their PDF
+/// exports, and keeps the shared App Group cache warm. This controller
+/// renders the cached PDF if present, else the Tier 0 card. The preview is
+/// NEVER blank and NEVER hangs.
 final class PreviewViewController: NSViewController, QLPreviewingController {
 
     override func loadView() {
@@ -35,63 +35,18 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             return
         }
 
+        // Freshness can't be checked here (needs metadata = network); the app
+        // validated modifiedTime when it wrote the cache and revalidates on
+        // every scan pass.
         if stub.type.isExportable,
-           let container = FetchQueue.groupContainerURL() {
-            let cache = PreviewCache(directory: container)
-
-            // Always enqueue + wake, even on a cache hit: the app re-checks
-            // modifiedTime and re-exports if the doc changed, so a stale
-            // preview self-heals by the next Space.
-            requestFetch(docID: stub.docID, container: container)
-
-            // Freshness can't be checked here (needs metadata = network); the
-            // app validated modifiedTime when it wrote the cache.
-            if let pdf = cache.anyCachedPDF(docID: stub.docID), showPDF(pdf) {
-                return
-            }
-
-            // Miss: give the just-woken app a moment. If the fetch is quick,
-            // the FIRST Space already shows the real document.
-            for _ in 0..<6 {
-                try? await Task.sleep(nanoseconds: 250_000_000)
-                if let pdf = cache.anyCachedPDF(docID: stub.docID), showPDF(pdf) {
-                    return
-                }
-            }
-            log.notice("No cached PDF after poll — falling back to Tier 0")
+           let container = FetchQueue.groupContainerURL(),
+           let pdf = PreviewCache(directory: container).anyCachedPDF(docID: stub.docID),
+           showPDF(pdf) {
+            return
         }
 
         // Tier 0 fallback: always works, no network needed.
         show(AnyView(StubCardView(stub: stub)))
-    }
-
-    // MARK: - Fetch handoff
-
-    /// Enqueues a fetch marker and launches the app without activating it.
-    /// Failures are non-fatal: the preview just stays Tier 0.
-    private func requestFetch(docID: String, container: URL) {
-        do {
-            try FetchQueue(directory: container).enqueue(docID: docID)
-        } catch {
-            log.error("Enqueue failed: \(String(describing: error), privacy: .public)")
-            return
-        }
-
-        // .appex lives at DrivePeak.app/Contents/PlugIns/DrivePeakPreview.appex
-        let appURL = Bundle.main.bundleURL
-            .deletingLastPathComponent()   // PlugIns/
-            .deletingLastPathComponent()   // Contents/
-            .deletingLastPathComponent()   // DrivePeak.app
-        let config = NSWorkspace.OpenConfiguration()
-        config.activates = false
-        config.addsToRecentItems = false
-        NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, error in
-            if let error {
-                // Sandbox may deny launching. The marker persists: the app
-                // fetches it whenever the user next opens it.
-                log.error("App wake failed: \(String(describing: error), privacy: .public)")
-            }
-        }
     }
 
     // MARK: - Rendering

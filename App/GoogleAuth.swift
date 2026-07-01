@@ -11,7 +11,7 @@ public enum GoogleAuthError: Error, LocalizedError {
     case portUnavailable
     case redirectFailed(String)
     case noCode
-    case tokenExchangeFailed(Int)
+    case tokenExchangeFailed(Int, String)
     case noRefreshToken
     case decodeFailed
 
@@ -22,7 +22,7 @@ public enum GoogleAuthError: Error, LocalizedError {
         case .portUnavailable:      return "Could not determine bound port"
         case .redirectFailed(let s): return "OAuth redirect error: \(s)"
         case .noCode:               return "No code in redirect"
-        case .tokenExchangeFailed(let s): return "Token exchange HTTP \(s)"
+        case .tokenExchangeFailed(let s, let d): return "Token exchange HTTP \(s): \(d)"
         case .noRefreshToken:       return "No refresh_token in response — re-auth required"
         case .decodeFailed:         return "Could not decode token response"
         }
@@ -124,6 +124,7 @@ public final class GoogleAuth: ObservableObject {
         guard let clientID = OAuthConfig.clientID() else {
             throw GoogleAuthError.clientIDMissing
         }
+        let clientSecret = OAuthConfig.clientSecret()
 
         let pkce = PKCE.generate()
         let box  = ContinuationBox()
@@ -157,6 +158,7 @@ public final class GoogleAuth: ObservableObject {
         // 5. Exchange code for tokens.
         let tokens = try await exchangeCode(code,
                                             clientID: clientID,
+                                            clientSecret: clientSecret,
                                             redirectURI: redirectURI,
                                             verifier: pkce.verifier)
 
@@ -263,6 +265,7 @@ public final class GoogleAuth: ObservableObject {
 
     private func exchangeCode(_ code: String,
                                clientID: String,
+                               clientSecret: String?,
                                redirectURI: String,
                                verifier: String) async throws -> Tokens {
         var req = URLRequest(url: URL(string: GoogleOAuthEndpoints.token)!)
@@ -273,18 +276,24 @@ public final class GoogleAuth: ObservableObject {
         func enc(_ s: String) -> String {
             s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
         }
-        let body = [
+        var fields = [
             "code=\(enc(code))",
             "client_id=\(enc(clientID))",
             "redirect_uri=\(enc(redirectURI))",
             "code_verifier=\(enc(verifier))",
             "grant_type=authorization_code",
-        ].joined(separator: "&")
+        ]
+        // Desktop-app OAuth clients require the secret even with PKCE.
+        if let clientSecret { fields.append("client_secret=\(enc(clientSecret))") }
+        let body = fields.joined(separator: "&")
         req.httpBody = Data(body.utf8)
 
         let (data, resp) = try await session.data(for: req)
         let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
-        guard status == 200 else { throw GoogleAuthError.tokenExchangeFailed(status) }
+        guard status == 200 else {
+            let detail = String(data: data, encoding: .utf8) ?? ""
+            throw GoogleAuthError.tokenExchangeFailed(status, detail)
+        }
 
         guard let tokenResp = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
             throw GoogleAuthError.decodeFailed

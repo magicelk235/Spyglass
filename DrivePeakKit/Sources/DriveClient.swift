@@ -15,11 +15,13 @@ public final class DriveClient {
     private let store: TokenStore
     private let session: URLSession
     private let clientID: String
+    private let clientSecret: String?
 
-    public init(store: TokenStore, session: URLSession = .shared, clientID: String) {
+    public init(store: TokenStore, session: URLSession = .shared, clientID: String, clientSecret: String? = nil) {
         self.store = store
         self.session = session
         self.clientID = clientID
+        self.clientSecret = clientSecret
     }
 
     public func exportPDF(docID: String) async throws -> Data {
@@ -85,11 +87,14 @@ public final class DriveClient {
         func encode(_ s: String) -> String {
             s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
         }
-        let body = [
+        var fields = [
             "client_id=\(encode(clientID))",
             "refresh_token=\(encode(old.refreshToken))",
             "grant_type=refresh_token",
-        ].joined(separator: "&")
+        ]
+        // Desktop-app clients require the secret on refresh too (see OAuthConfig).
+        if let secret = clientSecret { fields.append("client_secret=\(encode(secret))") }
+        let body = fields.joined(separator: "&")
         req.httpBody = Data(body.utf8)
 
         let (data, resp) = try await session.data(for: req)

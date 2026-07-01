@@ -49,6 +49,16 @@ final class FetchQueueTests: XCTestCase {
         XCTAssertEqual(q.pending(), ["../../etc/passwd"])
     }
 
+    func testPostThenTakeRequestsRoundTrip() {
+        let suite = "dp-defaults-test-\(UUID().uuidString)"
+        defer { UserDefaults().removePersistentDomain(forName: suite) }
+        FetchQueue.postRequest(docID: "D1", groupID: suite)
+        FetchQueue.postRequest(docID: "D1", groupID: suite)   // dedup
+        FetchQueue.postRequest(docID: "D2", groupID: suite)
+        XCTAssertEqual(FetchQueue.takeRequests(groupID: suite), ["D1", "D2"])
+        XCTAssertEqual(FetchQueue.takeRequests(groupID: suite), [])   // cleared
+    }
+
     func testMultiplePendingDocIDs() throws {
         let q = FetchQueue(directory: tempDir())
         try q.enqueue(docID: "A")

@@ -2,20 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <!-- App is sandboxed (required for the embedded extension to activate).
-         Outgoing network for sign-in; incoming (server) for the loopback OAuth
-         listener; user-selected file read for the "open a file" button. The
-         App Group holds the rendered-PDF cache and the Keychain group holds the
-         OAuth token, both shared with the extension. The Keychain/App-Group
-         entitlements are enforced only when signed with a real Team ID. -->
-    <key>com.apple.security.app-sandbox</key>
-    <true/>
-    <key>com.apple.security.network.client</key>
-    <true/>
-    <key>com.apple.security.network.server</key>
-    <true/>
-    <key>com.apple.security.files.user-selected.read-only</key>
-    <true/>
+    <!-- The app is deliberately NOT sandboxed (extensions must be; hosts need
+         not be outside the App Store). The Quick Look extension's sandbox is
+         write-locked — it can't write the group container, shared prefs, or
+         launch apps — so the app must discover stub files on disk itself
+         (StubScanner) and pre-fetch previews. That needs real file access.
+         The App Group holds the rendered-PDF cache and the Keychain group the
+         OAuth token, both shared with the extension. -->
     <key>com.apple.security.application-groups</key>
     <array>
         <string>group.com.drivepeak.shared</string>

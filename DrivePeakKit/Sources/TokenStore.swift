@@ -49,8 +49,14 @@ public final class SystemKeychain: KeychainBackend {
     public init() {}
 
     private func baseQuery(_ account: String) -> [String: Any] {
+        // macOS defaults SecItem* to the LEGACY file keychain, where
+        // keychain-access-group sharing does not work (the extension gets
+        // errSecItemNotFound / a missing datastore). Opting into the
+        // data-protection keychain is what makes the shared group actually
+        // shared between the app and the sandboxed extension.
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrAccount as String: account]
+         kSecAttrAccount as String: account,
+         kSecUseDataProtectionKeychain as String: true]
     }
 
     public func set(_ data: Data, account: String) throws {

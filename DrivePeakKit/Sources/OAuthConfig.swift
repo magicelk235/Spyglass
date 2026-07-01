@@ -4,9 +4,14 @@ import Foundation
 public struct OAuthConfig {
     /// The OAuth client ID from the bundled plist.
     public let clientId: String
+    /// The OAuth client secret. Google-issued "Desktop app" clients get a secret
+    /// and require it in the token/refresh exchange *even with PKCE* — only true
+    /// public clients (mobile) may omit it. Optional so Tier 0 still loads if the
+    /// plist has no secret; nil just means the token exchange will 400.
+    public let clientSecret: String?
 
     /// Loads OAuthConfig from GoogleOAuth.plist in the bundle's Resources.
-    /// - Returns: OAuthConfig with the client_id from the plist.
+    /// - Returns: OAuthConfig with the client_id (and optional client_secret).
     /// - Throws: If the plist is missing, unreadable, or lacks CLIENT_ID key.
     public static func load(from bundle: Bundle = .main) throws -> OAuthConfig {
         guard let plistURL = bundle.url(forResource: "GoogleOAuth", withExtension: "plist") else {
@@ -22,7 +27,8 @@ public struct OAuthConfig {
             throw OAuthConfigError.missingClientId
         }
 
-        return OAuthConfig(clientId: clientId)
+        return OAuthConfig(clientId: clientId,
+                           clientSecret: plist["CLIENT_SECRET"] as? String)
     }
 
     /// Convenience: the client_id, or nil if the plist is absent/malformed.
@@ -30,6 +36,11 @@ public struct OAuthConfig {
     /// the authenticated tier rather than throwing.
     public static func clientID(bundle: Bundle = .main) -> String? {
         (try? load(from: bundle))?.clientId
+    }
+
+    /// Convenience: the client_secret, or nil if absent.
+    public static func clientSecret(bundle: Bundle = .main) -> String? {
+        (try? load(from: bundle))?.clientSecret
     }
 }
 

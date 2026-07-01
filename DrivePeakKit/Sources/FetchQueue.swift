@@ -39,6 +39,32 @@ public struct FetchQueue {
         try? FileManager.default.removeItem(at: markerURL(docID))
     }
 
+    // MARK: - UserDefaults request channel (extension → app)
+
+    private static let defaultsKey = "pendingDocIDs"
+
+    /// The QL extension's sandbox denies direct file writes into the group
+    /// container (EPERM), but shared-UserDefaults writes go through cfprefsd
+    /// (IPC) and are allowed. The extension posts requests here; the app takes
+    /// them during drain and processes them like marker files.
+    /// ponytail: read-modify-write is not atomic across processes; previews
+    /// arrive one at a time, so a lost concurrent append is acceptable.
+    public static func postRequest(docID: String, groupID: String = "group.com.drivepeak.shared") {
+        guard let d = UserDefaults(suiteName: groupID) else { return }
+        var list = d.stringArray(forKey: defaultsKey) ?? []
+        guard !list.contains(docID) else { return }
+        list.append(docID)
+        d.set(list, forKey: defaultsKey)
+    }
+
+    /// Takes (returns and clears) all requests posted via postRequest.
+    public static func takeRequests(groupID: String = "group.com.drivepeak.shared") -> [String] {
+        guard let d = UserDefaults(suiteName: groupID) else { return [] }
+        let list = d.stringArray(forKey: defaultsKey) ?? []
+        if !list.isEmpty { d.removeObject(forKey: defaultsKey) }
+        return list
+    }
+
     private func markerURL(_ docID: String) -> URL {
         let digest = SHA256.hash(data: Data(docID.utf8))
         let key = digest.map { String(format: "%02x", $0) }.joined()

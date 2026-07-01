@@ -8,17 +8,23 @@ private let log = Logger(subsystem: "com.drivepeak.app", category: "fetchworker"
 /// export from Drive (the app CAN resolve DNS; the extension can't) and writes
 /// the shared PreviewCache. Watches the requests directory while running so
 /// markers written by the extension are picked up immediately.
-final class FetchWorker {
+final class FetchWorker: NSObject {
     private let queue: FetchQueue?
     private let cache: PreviewCache?
     private var watcher: DispatchSourceFileSystemObject?
     private var draining = false
     private let workQueue = DispatchQueue(label: "com.drivepeak.fetchworker")
+    // Shared defaults double as the request channel: the extension's sandbox
+    // can't write files into the group container, but cfprefsd writes work.
+    // KVO on a shared suite is delivered across processes, so a running app
+    // picks up new requests without polling.
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.drivepeak.shared")
 
-    init() {
+    override init() {
         let container = FetchQueue.groupContainerURL()
         queue = container.map { FetchQueue(directory: $0) }
         cache = container.map { PreviewCache(directory: $0) }
+        super.init()
     }
 
     /// Drains once (markers written while the app was dead), then watches the
@@ -45,6 +51,16 @@ final class FetchWorker {
         src.setCancelHandler { close(fd) }
         src.resume()
         watcher = src
+
+        // Cross-process trigger for requests posted by the extension.
+        sharedDefaults?.addObserver(self, forKeyPath: "pendingDocIDs",
+                                    options: [], context: nil)
+    }
+
+    override func observeValue(forKeyPath keyPath: String?, of object: Any?,
+                               change: [NSKeyValueChangeKey: Any]?,
+                               context: UnsafeMutableRawPointer?) {
+        drain()
     }
 
     private func drain() {
@@ -58,14 +74,18 @@ final class FetchWorker {
         }
     }
 
-    /// A marker enqueued mid-drain is picked up by this tail check.
+    /// A request arriving mid-drain is picked up by this tail check.
     private func drainIfMorePending() {
-        if let queue, !queue.pending().isEmpty { drain() }
+        let defaultsPending = (sharedDefaults?.stringArray(forKey: "pendingDocIDs") ?? []).isEmpty == false
+        if defaultsPending || (queue.map { !$0.pending().isEmpty } ?? false) { drain() }
     }
 
     private func processPending() async {
         guard let queue, let cache else { return }
-        let docIDs = queue.pending()
+        // Requests arrive via shared defaults (extension) or marker files
+        // (drain-on-launch leftovers / manual). Dedupe, preserve order.
+        var seen = Set<String>()
+        let docIDs = (FetchQueue.takeRequests() + queue.pending()).filter { seen.insert($0).inserted }
         guard !docIDs.isEmpty else { return }
 
         // No sign-in → nothing we can fetch; drop the markers so the dir

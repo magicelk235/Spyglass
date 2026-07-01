@@ -4,5 +4,7 @@
 <dict>
     <key>CLIENT_ID</key>
     <string>REPLACE_WITH_YOUR_CLIENT_ID.apps.googleusercontent.com</string>
+    <key>CLIENT_SECRET</key>
+    <string>REPLACE_WITH_YOUR_CLIENT_SECRET</string>
 </dict>
 </plist>
