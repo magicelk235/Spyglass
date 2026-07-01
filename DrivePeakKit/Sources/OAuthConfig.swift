@@ -24,6 +24,13 @@ public struct OAuthConfig {
 
         return OAuthConfig(clientId: clientId)
     }
+
+    /// Convenience: the client_id, or nil if the plist is absent/malformed.
+    /// This is the entry point call sites use — a missing config just disables
+    /// the authenticated tier rather than throwing.
+    public static func clientID(bundle: Bundle = .main) -> String? {
+        (try? load(from: bundle))?.clientId
+    }
 }
 
 /// Errors that can occur when loading OAuth configuration.
