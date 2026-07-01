@@ -76,5 +76,12 @@ public final class SystemKeychain: KeychainBackend {
         }
     }
 
-    public enum KeychainError: Error { case status(OSStatus) }
+    public enum KeychainError: LocalizedError {
+        case status(OSStatus)
+        public var errorDescription: String? {
+            switch self {
+            case .status(let s): return "Keychain operation failed (OSStatus \(s))."
+            }
+        }
+    }
 }

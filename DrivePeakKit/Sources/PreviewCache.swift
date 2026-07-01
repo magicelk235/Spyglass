@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Caches exported PDFs in a directory (the shared App Group container in
 /// production), keyed by docID and invalidated by the file's modifiedTime.
@@ -39,14 +40,14 @@ public struct PreviewCache {
         try modifiedTime.write(to: metaURL(docID), atomically: true, encoding: .utf8)
     }
 
-    /// docID comes from an untrusted stub file. Reduce it to a safe filename
-    /// token (alphanumerics, - and _ only) so it can't contain "/" or ".." and
-    /// escape the previews directory. appendingPathComponent does NOT normalize
-    /// "..", so this guard is the trust boundary.
+    /// docID comes from an untrusted stub file. Hash it to a fixed hex filename:
+    /// (1) it can't contain "/" or ".." to escape the previews directory (the
+    /// trust boundary), and (2) unlike a lossy character scrub, distinct docIDs
+    /// never collide onto the same file (which would serve one doc's PDF for
+    /// another via anyCachedPDF, which does no content check).
     private func safeKey(_ docID: String) -> String {
-        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
-        let scrubbed = String(docID.unicodeScalars.map { allowed.contains($0) ? Character($0) : "_" })
-        return scrubbed.isEmpty ? "_" : scrubbed
+        let digest = SHA256.hash(data: Data(docID.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     private func pdfURL(_ docID: String) -> URL { previewsDir.appendingPathComponent("\(safeKey(docID)).pdf") }

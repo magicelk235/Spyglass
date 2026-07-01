@@ -49,4 +49,14 @@ final class PreviewCacheTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: escaped.path),
                        "docID path traversal escaped the previews directory")
     }
+
+    func testDistinctDocIDsDoNotCollide() throws {
+        // Two ids that a lossy char-scrub would collapse to the same file must
+        // now cache independently (SHA256 key is collision-free).
+        let cache = PreviewCache(directory: tempDir())
+        try cache.store(docID: "A/B", modifiedTime: "T", pdf: Data("AB".utf8))
+        try cache.store(docID: "A_B", modifiedTime: "T", pdf: Data("XY".utf8))
+        XCTAssertEqual(cache.anyCachedPDF(docID: "A/B"), Data("AB".utf8))
+        XCTAssertEqual(cache.anyCachedPDF(docID: "A_B"), Data("XY".utf8))
+    }
 }

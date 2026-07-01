@@ -205,6 +205,15 @@ public final class GoogleAuth: ObservableObject {
                     let requestLine = raw.components(separatedBy: "\r\n").first ?? ""
                     let parts = requestLine.components(separatedBy: " ")
                     let path = parts.count >= 2 ? parts[1] : ""
+
+                    // Only the OAuth redirect matters. Browsers routinely probe
+                    // loopback origins (GET /favicon.ico, etc.); those must fall
+                    // through so a probe doesn't get mistaken for the callback
+                    // and abort sign-in with .noCode. Match the redirect path.
+                    guard path.hasPrefix("/oauth") else {
+                        conn.cancel()   // ignore the probe; a later connection carries the code
+                        return
+                    }
                     // Build a full URL so URLComponents can parse query items.
                     let full = "http://127.0.0.1\(path)"
 
@@ -213,16 +222,12 @@ public final class GoogleAuth: ObservableObject {
                     let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
                     conn.send(content: Data(response.utf8), completion: .idempotent)
 
-                    // Resolve on the first request that carries a path. A parseable
-                    // URL → success; a request line we can't turn into a URL →
-                    // failure (rather than a silent hang). Truly empty/garbage
-                    // reads fall through and let a later connection resolve.
-                    if !path.isEmpty {
-                        let result: Result<URL, Error> = URL(string: full)
-                            .map { .success($0) } ?? .failure(GoogleAuthError.noCode)
-                        Task { @MainActor in
-                            box?.resolve(result)
-                        }
+                    // Parseable URL → success; a redirect line we can't turn into
+                    // a URL → failure (rather than a silent hang).
+                    let result: Result<URL, Error> = URL(string: full)
+                        .map { .success($0) } ?? .failure(GoogleAuthError.noCode)
+                    Task { @MainActor in
+                        box?.resolve(result)
                     }
                 }
             }
