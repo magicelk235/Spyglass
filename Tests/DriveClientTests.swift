@@ -160,3 +160,18 @@ final class DriveClientTests: XCTestCase {
         XCTAssertNil(StubURLProtocol.callCounts["/token"])
     }
 }
+
+
+final class SanitizedLifetimeTests: XCTestCase {
+    func testClampsNegativeAndZeroToFloor() {
+        XCTAssertEqual(sanitizedLifetime(-1), 60)
+        XCTAssertEqual(sanitizedLifetime(0), 60)
+        XCTAssertEqual(sanitizedLifetime(30), 60) // below floor
+    }
+    func testKeepsNormalValue() {
+        XCTAssertEqual(sanitizedLifetime(3600), 3600)
+    }
+    func testCapsAbsurdlyLargeValue() {
+        XCTAssertEqual(sanitizedLifetime(999_999_999), TimeInterval(24 * 3600))
+    }
+}

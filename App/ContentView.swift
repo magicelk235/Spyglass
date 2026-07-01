@@ -93,8 +93,10 @@ struct ContentView: View {
                 Button {
                     Task { try? await auth.signIn() }
                 } label: {
-                    Label("Sign in with Google", systemImage: "person.badge.key")
+                    Label(auth.isSigningIn ? "Signing in…" : "Sign in with Google",
+                          systemImage: "person.badge.key")
                 }
+                .disabled(auth.isSigningIn)   // no concurrent sign-in flows
                 Text("Optional — enables rendered document previews.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)

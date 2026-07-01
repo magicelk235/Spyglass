@@ -82,6 +82,10 @@ public final class GoogleAuth: ObservableObject {
 
     @Published public private(set) var email: String?
     @Published public private(set) var lastError: String?
+    /// True while a sign-in flow is running, so the UI can disable the button
+    /// and we can reject a concurrent second flow (which would open a second
+    /// browser tab and a second loopback listener).
+    @Published public private(set) var isSigningIn = false
 
     public init(store: TokenStore = TokenStore(), session: URLSession = .shared) {
         self.store = store
@@ -104,7 +108,10 @@ public final class GoogleAuth: ObservableObject {
     /// Runs the full sign-in flow and saves tokens to the keychain.
     /// Throws `GoogleAuthError` on any failure.
     public func signIn() async throws {
+        guard !isSigningIn else { return }   // reject concurrent sign-in
+        isSigningIn = true
         lastError = nil
+        defer { isSigningIn = false }
         do {
             try await _signIn()
         } catch {
@@ -173,10 +180,10 @@ public final class GoogleAuth: ObservableObject {
 
         // Resolve the bound port.
         let port: UInt16 = try await withCheckedThrowingContinuation { portCont in
-            listener.stateUpdateHandler = { state in
+            listener.stateUpdateHandler = { [weak listener] state in
                 switch state {
                 case .ready:
-                    if let p = listener.port?.rawValue {
+                    if let p = listener?.port?.rawValue {
                         portCont.resume(returning: p)
                     } else {
                         portCont.resume(throwing: GoogleAuthError.portUnavailable)
@@ -282,7 +289,7 @@ public final class GoogleAuth: ObservableObject {
         }
 
         let email = await fetchEmail(accessToken: tokenResp.access_token)
-        let expiry = Date().addingTimeInterval(TimeInterval(tokenResp.expires_in))
+        let expiry = Date().addingTimeInterval(sanitizedLifetime(tokenResp.expires_in))
 
         return Tokens(accessToken: tokenResp.access_token,
                       refreshToken: refreshToken,

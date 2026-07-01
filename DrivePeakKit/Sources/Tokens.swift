@@ -15,6 +15,9 @@ public struct Tokens: Codable, Equatable, Sendable {
         self.email = email
     }
 
-    /// True once the access token is at/after its expiry (refresh needed).
-    public var isExpired: Bool { expiry <= Date() }
+    /// True once the access token is at/near its expiry (refresh needed).
+    /// Applies a 30s skew buffer: we treat the token as expired slightly early
+    /// so a token about to expire mid-request (or a small backward clock drift)
+    /// triggers a refresh rather than a rejected call.
+    public var isExpired: Bool { expiry.timeIntervalSinceNow <= 30 }
 }

@@ -50,6 +50,10 @@ public final class DriveClient {
             (data, status) = try await get(url, token: token)
         }
         guard (200..<300).contains(status) else { throw DriveError.http(status) }
+        // A 200 with an empty body (Drive occasionally does this for a still-
+        // converting or oversized export) is not usable — treat it as an error
+        // so it never gets cached and poisons the offline fallback.
+        guard !data.isEmpty else { throw DriveError.http(status) }
         return data
     }
 
@@ -95,9 +99,20 @@ public final class DriveClient {
         }
         let updated = Tokens(accessToken: r.access_token,
                              refreshToken: old.refreshToken,
-                             expiry: Date().addingTimeInterval(TimeInterval(r.expires_in)),
+                             expiry: Date().addingTimeInterval(sanitizedLifetime(r.expires_in)),
                              email: old.email)
         try store.save(updated)
         return r.access_token
     }
+}
+
+/// Clamps an OAuth `expires_in` (seconds) to a sane positive lifetime. A
+/// negative or zero value from a malformed or hostile token response would mint
+/// an already-expired token and drive an infinite refresh loop; floor it so the
+/// token is usable for at least a short window. Values are also capped to avoid
+/// absurd far-future expiries.
+public func sanitizedLifetime(_ expiresIn: Int) -> TimeInterval {
+    let minLifetime = 60          // at least a minute of usability
+    let maxLifetime = 24 * 3600   // Google access tokens are ~1h; cap at a day
+    return TimeInterval(min(max(expiresIn, minLifetime), maxLifetime))
 }
