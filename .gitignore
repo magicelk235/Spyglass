@@ -4,3 +4,6 @@ DerivedData/
 xcuserdata/
 .DS_Store
 Secrets.xcconfig
+
+# xcodegen-generated project (regenerate with: xcodegen generate)
+DrivePeak.xcodeproj/

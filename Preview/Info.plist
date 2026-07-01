@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>XPC!</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>NSExtension</key>
+    <dict>
+        <key>NSExtensionPointIdentifier</key>
+        <string>com.apple.quicklook.preview</string>
+        <key>NSExtensionPrincipalClass</key>
+        <string>$(PRODUCT_MODULE_NAME).PreviewViewController</string>
+        <key>NSExtensionAttributes</key>
+        <dict>
+            <!-- The UTIs this extension previews. Must match the app's exported
+                 type declarations. Keep in sync with WorkspaceType.swift. -->
+            <key>QLSupportedContentTypes</key>
+            <array>
+                <string>com.drivepeak.doc</string>
+                <string>com.drivepeak.sheet</string>
+                <string>com.drivepeak.slides</string>
+                <string>com.drivepeak.drawing</string>
+                <string>com.drivepeak.form</string>
+                <string>com.drivepeak.site</string>
+            </array>
+            <key>QLIsDataBasedPreview</key>
+            <true/>
+        </dict>
+    </dict>
+</dict>
+</plist>

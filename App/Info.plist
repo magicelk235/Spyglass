@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>$(DEVELOPMENT_LANGUAGE)</string>
+    <key>CFBundleDisplayName</key>
+    <string>DrivePeak</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+
+    <!--
+      Exported type declarations. macOS types Google stub files as an anonymous
+      dyn.* UTI; declaring our own UTIs (conforming to public.json) is what lets
+      Quick Look find and route the file to our preview extension.
+      One entry per WorkspaceType; keep in sync with WorkspaceType.swift.
+    -->
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key><string>com.drivepeak.doc</string>
+            <key>UTTypeDescription</key><string>Google Docs file</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.json</string><string>public.data</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict><key>public.filename-extension</key><array><string>gdoc</string></array></dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>com.drivepeak.sheet</string>
+            <key>UTTypeDescription</key><string>Google Sheets file</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.json</string><string>public.data</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict><key>public.filename-extension</key><array><string>gsheet</string></array></dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>com.drivepeak.slides</string>
+            <key>UTTypeDescription</key><string>Google Slides file</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.json</string><string>public.data</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict><key>public.filename-extension</key><array><string>gslides</string></array></dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>com.drivepeak.drawing</string>
+            <key>UTTypeDescription</key><string>Google Drawings file</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.json</string><string>public.data</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict><key>public.filename-extension</key><array><string>gdraw</string></array></dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>com.drivepeak.form</string>
+            <key>UTTypeDescription</key><string>Google Forms file</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.json</string><string>public.data</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict><key>public.filename-extension</key><array><string>gform</string></array></dict>
+        </dict>
+        <dict>
+            <key>UTTypeIdentifier</key><string>com.drivepeak.site</string>
+            <key>UTTypeDescription</key><string>Google Sites file</string>
+            <key>UTTypeConformsTo</key>
+            <array><string>public.json</string><string>public.data</string></array>
+            <key>UTTypeTagSpecification</key>
+            <dict><key>public.filename-extension</key><array><string>gsite</string></array></dict>
+        </dict>
+    </array>
+</dict>
+</plist>

@@ -1,0 +1,78 @@
+name: DrivePeak
+options:
+  bundleIdPrefix: com.drivepeak
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_IDENTITY: "-"          # ad-hoc sign for local install
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+  # Shared, unit-testable logic used by both the app and the extension.
+  DrivePeakKit:
+    type: library.static
+    platform: macOS
+    sources: [DrivePeakKit/Sources]
+    settings:
+      base:
+        DEFINES_MODULE: YES
+
+  # Host application (thin: status UI + future sign-in).
+  DrivePeak:
+    type: application
+    platform: macOS
+    sources: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: DrivePeakKit
+      - target: DrivePeakPreview
+        embed: true
+
+  # Quick Look Preview Extension (.appex embedded in the app).
+  DrivePeakPreview:
+    type: app-extension
+    platform: macOS
+    sources: [Preview]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app.preview
+        INFOPLIST_FILE: Preview/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - target: DrivePeakKit
+
+  # Unit tests for the pure logic in DrivePeakKit.
+  DrivePeakKitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [Tests]
+    dependencies:
+      - target: DrivePeakKit
+
+schemes:
+  DrivePeak:
+    build:
+      targets:
+        DrivePeak: all
+    run:
+      config: Debug
+  DrivePeakKit:
+    build:
+      targets:
+        DrivePeakKit: all
+        DrivePeakKitTests: [test]
+    test:
+      targets:
+        - DrivePeakKitTests
