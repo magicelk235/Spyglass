@@ -10,6 +10,8 @@
     <true/>
     <key>com.apple.security.network.client</key>
     <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
     <key>com.apple.security.files.user-selected.read-only</key>
     <true/>
     <key>com.apple.security.application-groups</key>
@@ -22,3 +24,4 @@
     </array>
 </dict>
 </plist>
+PLIST && pwd -P >| /tmp/claude-2cec-cwd
