@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Security
 
 /// PKCE (RFC 7636) verifier/challenge pair and Google OAuth URL assembly.
 /// Pure and deterministic given the verifier, so the challenge derivation is
@@ -11,7 +12,8 @@ public struct PKCE {
     public static func generate() -> PKCE {
         // 32 random bytes → 43-char base64url verifier (RFC 7636 unreserved).
         var bytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        precondition(status == errSecSuccess, "PKCE: secure RNG failed")
         let verifier = base64url(Data(bytes))
         let digest = SHA256.hash(data: Data(verifier.utf8))
         return PKCE(verifier: verifier, challenge: base64url(Data(digest)))

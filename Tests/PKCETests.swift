@@ -14,6 +14,8 @@ final class PKCETests: XCTestCase {
         XCTAssertEqual(pkce.challenge, expected)
         XCTAssertFalse(pkce.challenge.contains("="))
         XCTAssertGreaterThanOrEqual(pkce.verifier.count, 43) // RFC 7636 min
+        let unreserved = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._~"))
+        XCTAssertTrue(pkce.verifier.unicodeScalars.allSatisfy { unreserved.contains($0) })
     }
 
     func testAuthURLContainsRequiredParams() {
@@ -29,6 +31,7 @@ final class PKCETests: XCTestCase {
         XCTAssertTrue(s.contains("code_challenge_method=S256"))
         XCTAssertTrue(s.contains("response_type=code"))
         XCTAssertTrue(s.contains("access_type=offline"))
+        XCTAssertTrue(s.contains("prompt=consent"))
         // scope is URL-encoded; check one scope fragment survives
         XCTAssertTrue(s.contains("drive.readonly"))
     }
