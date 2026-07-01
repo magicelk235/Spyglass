@@ -62,15 +62,29 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
                 // All work here is plain async — no main-actor-isolated state.
                 let store = TokenStore()
                 let client = DriveClient(store: store, clientID: clientID)
-
-                // Check cache first (avoids network on repeat opens).
                 let cache: PreviewCache? = PreviewCache.groupContainerURL().map { PreviewCache(directory: $0) }
-                let meta = try await client.metadata(docID: docID)
+
+                // Fetch metadata to key the cache by the doc's modifiedTime. If
+                // metadata fails (offline, 401, timeout, decode), fall back to
+                // ANY cached PDF for this doc — a stale-but-real render beats
+                // downgrading to the Tier 0 card. Only give up (nil) if there's
+                // no cached PDF at all.
+                let meta: DriveMetadata
+                do {
+                    meta = try await client.metadata(docID: docID)
+                } catch {
+                    if let cached = cache?.anyCachedPDF(docID: docID) { return cached }
+                    throw error
+                }
+
+                // Fresh metadata: serve the cache if it matches, else export.
                 if let cached = cache?.cachedPDF(docID: docID, modifiedTime: meta.modifiedTime) {
                     return cached
                 }
-
                 let pdf = try await client.exportPDF(docID: docID)
+                // Don't write a result that arrived after the deadline — a
+                // timed-out task is cancelled, so bail before the cache write.
+                try Task.checkCancellation()
                 try? cache?.store(docID: docID, modifiedTime: meta.modifiedTime, pdf: pdf)
                 return pdf
             }
