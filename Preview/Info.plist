@@ -37,8 +37,6 @@
                 <string>com.drivepeak.form</string>
                 <string>com.drivepeak.site</string>
             </array>
-            <key>QLIsDataBasedPreview</key>
-            <true/>
         </dict>
     </dict>
 </dict>
