@@ -9,10 +9,13 @@ private let log = Logger(subsystem: "com.drivepeak.app.preview", category: "prev
 
 /// Quick Look Preview Extension entry point.
 ///
-/// Tier 1: when signed in and file is exportable, fetches a Drive PDF export
-/// and renders it via PDFView. Falls back to Tier 0 (StubCardView) on ANY
-/// failure — no auth, non-exportable type, network error, or timeout.
-/// The preview is NEVER blank and NEVER hangs (2 s hard timeout).
+/// The extension's sandbox cannot resolve DNS (verified: every host fails with
+/// NSURLErrorDomain -1003), so it makes NO network calls. Tier 1 works by
+/// handoff: on every exportable preview it enqueues a fetch marker and wakes
+/// the app (headless menu-bar agent), which fetches the PDF export and writes
+/// the shared App Group cache. This controller renders whatever is cached —
+/// immediately on a hit, after a short poll on a miss — and otherwise shows
+/// the Tier 0 card. The preview is NEVER blank and NEVER hangs.
 final class PreviewViewController: NSViewController, QLPreviewingController {
 
     override func loadView() {
@@ -32,67 +35,66 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             return
         }
 
-        // Attempt authenticated PDF fetch only when signed in and type is exportable.
         if stub.type.isExportable,
-           let clientID = OAuthConfig.clientID(bundle: Bundle(for: PreviewViewController.self)),
-           TokenStore().load() != nil {
+           let container = FetchQueue.groupContainerURL() {
+            let cache = PreviewCache(directory: container)
 
-            // Render only if the fetch succeeded AND the bytes are a loadable
-            // PDF; a false from showPDF (corrupt/non-PDF data) must fall through
-            // to Tier 0, never leave a blank PDFView.
-            if let pdfData = await fetchPDF(docID: stub.docID, clientID: clientID),
-               showPDF(pdfData) {
+            // Always enqueue + wake, even on a cache hit: the app re-checks
+            // modifiedTime and re-exports if the doc changed, so a stale
+            // preview self-heals by the next Space.
+            requestFetch(docID: stub.docID, container: container)
+
+            // Freshness can't be checked here (needs metadata = network); the
+            // app validated modifiedTime when it wrote the cache.
+            if let pdf = cache.anyCachedPDF(docID: stub.docID), showPDF(pdf) {
                 return
             }
-            // Any failure falls through to Tier 0.
-            log.notice("PDF fetch failed or timed out — falling back to Tier 0")
+
+            // Miss: give the just-woken app a moment. If the fetch is quick,
+            // the FIRST Space already shows the real document.
+            for _ in 0..<6 {
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                if let pdf = cache.anyCachedPDF(docID: stub.docID), showPDF(pdf) {
+                    return
+                }
+            }
+            log.notice("No cached PDF after poll — falling back to Tier 0")
         }
 
         // Tier 0 fallback: always works, no network needed.
         show(AnyView(StubCardView(stub: stub)))
     }
 
-    // MARK: - Private helpers
+    // MARK: - Fetch handoff
 
-    /// Attempts to fetch (or load from cache) a PDF for the given doc.
-    /// Returns nil on any error or timeout so the caller can fall back cleanly.
-    private func fetchPDF(docID: String, clientID: String) async -> Data? {
+    /// Enqueues a fetch marker and launches the app without activating it.
+    /// Failures are non-fatal: the preview just stays Tier 0.
+    private func requestFetch(docID: String, container: URL) {
         do {
-            return try await withTimeout(seconds: 2.0) {
-                // All work here is plain async — no main-actor-isolated state.
-                let store = TokenStore()
-                let client = DriveClient(store: store, clientID: clientID)
-                let cache: PreviewCache? = PreviewCache.groupContainerURL().map { PreviewCache(directory: $0) }
-
-                // Fetch metadata to key the cache by the doc's modifiedTime. If
-                // metadata fails (offline, 401, timeout, decode), fall back to
-                // ANY cached PDF for this doc — a stale-but-real render beats
-                // downgrading to the Tier 0 card. Only give up (nil) if there's
-                // no cached PDF at all.
-                let meta: DriveMetadata
-                do {
-                    meta = try await client.metadata(docID: docID)
-                } catch {
-                    if let cached = cache?.anyCachedPDF(docID: docID) { return cached }
-                    throw error
-                }
-
-                // Fresh metadata: serve the cache if it matches, else export.
-                if let cached = cache?.cachedPDF(docID: docID, modifiedTime: meta.modifiedTime) {
-                    return cached
-                }
-                let pdf = try await client.exportPDF(docID: docID)
-                // Don't write a result that arrived after the deadline — a
-                // timed-out task is cancelled, so bail before the cache write.
-                try Task.checkCancellation()
-                try? cache?.store(docID: docID, modifiedTime: meta.modifiedTime, pdf: pdf)
-                return pdf
-            }
+            try FetchQueue(directory: container).enqueue(docID: docID)
         } catch {
-            log.error("PDF fetch error: \(String(describing: error), privacy: .public)")
-            return nil
+            log.error("Enqueue failed: \(String(describing: error), privacy: .public)")
+            return
+        }
+
+        // .appex lives at DrivePeak.app/Contents/PlugIns/DrivePeakPreview.appex
+        let appURL = Bundle.main.bundleURL
+            .deletingLastPathComponent()   // PlugIns/
+            .deletingLastPathComponent()   // Contents/
+            .deletingLastPathComponent()   // DrivePeak.app
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = false
+        config.addsToRecentItems = false
+        NSWorkspace.shared.openApplication(at: appURL, configuration: config) { _, error in
+            if let error {
+                // Sandbox may deny launching. The marker persists: the app
+                // fetches it whenever the user next opens it.
+                log.error("App wake failed: \(String(describing: error), privacy: .public)")
+            }
         }
     }
+
+    // MARK: - Rendering
 
     /// Renders the PDF. Returns false (rendering nothing) if the data isn't a
     /// loadable PDF, so the caller can fall back to the Tier 0 card.
@@ -114,28 +116,6 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         hosting.autoresizingMask = [.width, .height]
         view.subviews.forEach { $0.removeFromSuperview() }
         view.addSubview(hosting)
-    }
-}
-
-// MARK: - Timeout helper
-
-/// Races `operation` against a deadline. Throws `CancellationError` if the
-/// deadline fires first. The operation closure MUST NOT touch main-actor-
-/// isolated state (it runs in a detached child task).
-private func withTimeout<T: Sendable>(
-    seconds: Double,
-    operation: @escaping @Sendable () async throws -> T
-) async throws -> T {
-    try await withThrowingTaskGroup(of: T.self) { group in
-        group.addTask { try await operation() }
-        group.addTask {
-            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-            throw CancellationError()
-        }
-        // First result wins; cancel the loser.
-        guard let result = try await group.next() else { throw CancellationError() }
-        group.cancelAll()
-        return result
     }
 }
 
