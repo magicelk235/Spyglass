@@ -1,7 +1,10 @@
 import Cocoa
 import QuickLookUI
 import SwiftUI
+import OSLog
 import DrivePeakKit
+
+private let log = Logger(subsystem: "com.drivepeak.app.preview", category: "preview")
 
 /// Quick Look Preview Extension entry point.
 ///
@@ -18,6 +21,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
     func preparePreviewOfFile(at url: URL) async throws {
         let type = WorkspaceType(fileExtension: url.pathExtension)
         let title = url.deletingPathExtension().lastPathComponent
+        log.notice("DrivePeak preview invoked for \(url.lastPathComponent, privacy: .public)")
 
         // Step 1: prove routing works. Real card lands in step 3.
         let hosting = NSHostingView(

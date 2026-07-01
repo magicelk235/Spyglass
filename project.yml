@@ -35,6 +35,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app
         INFOPLIST_FILE: App/Info.plist
         GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: App/App.entitlements
     dependencies:
       - target: DrivePeakKit
       - target: DrivePeakPreview
@@ -50,6 +51,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app.preview
         INFOPLIST_FILE: Preview/Info.plist
         GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: Preview/Preview.entitlements
     dependencies:
       - target: DrivePeakKit
 
@@ -58,6 +60,9 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources: [Tests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: DrivePeakKit
 
