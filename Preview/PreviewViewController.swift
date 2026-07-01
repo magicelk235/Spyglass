@@ -1,6 +1,7 @@
 import Cocoa
 import QuickLookUI
 import SwiftUI
+import PDFKit
 import OSLog
 import DrivePeakKit
 
@@ -8,10 +9,10 @@ private let log = Logger(subsystem: "com.drivepeak.app.preview", category: "prev
 
 /// Quick Look Preview Extension entry point.
 ///
-/// macOS instantiates this when the user presses Space on a file whose UTI is
-/// listed in `QLSupportedContentTypes` (see Preview/Info.plist). It must hand
-/// back a view quickly and never block — the extension is sandboxed and
-/// short-lived.
+/// Tier 1: when signed in and file is exportable, fetches a Drive PDF export
+/// and renders it via PDFView. Falls back to Tier 0 (StubCardView) on ANY
+/// failure — no auth, non-exportable type, network error, or timeout.
+/// The preview is NEVER blank and NEVER hangs (2 s hard timeout).
 final class PreviewViewController: NSViewController, QLPreviewingController {
 
     override func loadView() {
@@ -21,15 +22,74 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
     func preparePreviewOfFile(at url: URL) async throws {
         log.notice("Preview invoked for \(url.lastPathComponent, privacy: .public)")
 
-        let root: AnyView
+        // Parse stub — failure shows UnparseableView instead of throwing.
+        let stub: Stub
         do {
-            let stub = try StubParser.parse(fileAt: url)
-            root = AnyView(StubCardView(stub: stub))
+            stub = try StubParser.parse(fileAt: url)
         } catch {
             log.error("Parse failed: \(String(describing: error), privacy: .public)")
-            root = AnyView(UnparseableView(filename: url.lastPathComponent))
+            show(AnyView(UnparseableView(filename: url.lastPathComponent)))
+            return
         }
 
+        // Attempt authenticated PDF fetch only when signed in and type is exportable.
+        if stub.type.isExportable,
+           let clientID = OAuthConfig.clientID(bundle: Bundle(for: PreviewViewController.self)),
+           TokenStore().load() != nil {
+
+            if let pdfData = await fetchPDF(docID: stub.docID, clientID: clientID) {
+                showPDF(pdfData)
+                return
+            }
+            // Any failure falls through to Tier 0.
+            log.notice("PDF fetch failed or timed out — falling back to Tier 0")
+        }
+
+        // Tier 0 fallback: always works, no network needed.
+        show(AnyView(StubCardView(stub: stub)))
+    }
+
+    // MARK: - Private helpers
+
+    /// Attempts to fetch (or load from cache) a PDF for the given doc.
+    /// Returns nil on any error or timeout so the caller can fall back cleanly.
+    private func fetchPDF(docID: String, clientID: String) async -> Data? {
+        do {
+            return try await withTimeout(seconds: 2.0) {
+                // All work here is plain async — no main-actor-isolated state.
+                let store = TokenStore()
+                let client = DriveClient(store: store, clientID: clientID)
+
+                // Check cache first (avoids network on repeat opens).
+                let cache: PreviewCache? = PreviewCache.groupContainerURL().map { PreviewCache(directory: $0) }
+                let meta = try await client.metadata(docID: docID)
+                if let cached = cache?.cachedPDF(docID: docID, modifiedTime: meta.modifiedTime) {
+                    return cached
+                }
+
+                let pdf = try await client.exportPDF(docID: docID)
+                try? cache?.store(docID: docID, modifiedTime: meta.modifiedTime, pdf: pdf)
+                return pdf
+            }
+        } catch {
+            log.error("PDF fetch error: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    /// Installs a PDFView rendering `data` as the view's sole subview.
+    /// Called on the main thread after the timeout closure returns.
+    private func showPDF(_ data: Data) {
+        let pdfView = PDFView(frame: view.bounds)
+        pdfView.autoresizingMask = [.width, .height]
+        pdfView.autoScales = true
+        pdfView.document = PDFDocument(data: data)
+        view.subviews.forEach { $0.removeFromSuperview() }
+        view.addSubview(pdfView)
+    }
+
+    /// Installs a SwiftUI hosting view as the view's sole subview.
+    private func show(_ root: AnyView) {
         let hosting = NSHostingView(rootView: root)
         hosting.frame = view.bounds
         hosting.autoresizingMask = [.width, .height]
@@ -38,8 +98,32 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
     }
 }
 
-/// Shown when the file isn't a stub we can parse (corrupt/empty). Rare, but the
-/// preview must never be blank.
+// MARK: - Timeout helper
+
+/// Races `operation` against a deadline. Throws `CancellationError` if the
+/// deadline fires first. The operation closure MUST NOT touch main-actor-
+/// isolated state (it runs in a detached child task).
+private func withTimeout<T: Sendable>(
+    seconds: Double,
+    operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask { try await operation() }
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw CancellationError()
+        }
+        // First result wins; cancel the loser.
+        let result = try await group.next()!
+        group.cancelAll()
+        return result
+    }
+}
+
+// MARK: - Unparseable fallback
+
+/// Shown when the file isn't a stub we can parse (corrupt/empty). Rare, but
+/// the preview must never be blank.
 private struct UnparseableView: View {
     let filename: String
 
