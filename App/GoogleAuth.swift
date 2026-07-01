@@ -81,6 +81,7 @@ public final class GoogleAuth: ObservableObject {
     private let session: URLSession
 
     @Published public private(set) var email: String?
+    @Published public private(set) var lastError: String?
 
     public init(store: TokenStore = TokenStore(), session: URLSession = .shared) {
         self.store = store
@@ -103,6 +104,16 @@ public final class GoogleAuth: ObservableObject {
     /// Runs the full sign-in flow and saves tokens to the keychain.
     /// Throws `GoogleAuthError` on any failure.
     public func signIn() async throws {
+        lastError = nil
+        do {
+            try await _signIn()
+        } catch {
+            lastError = error.localizedDescription
+            throw error
+        }
+    }
+
+    private func _signIn() async throws {
         guard let clientID = OAuthConfig.clientID() else {
             throw GoogleAuthError.clientIDMissing
         }
@@ -142,7 +153,7 @@ public final class GoogleAuth: ObservableObject {
                                             redirectURI: redirectURI,
                                             verifier: pkce.verifier)
 
-        // 6. Persist.
+        // 6. Persist — email is set only after save succeeds.
         try store.save(tokens)
         self.email = tokens.email
     }
@@ -296,4 +307,3 @@ public final class GoogleAuth: ObservableObject {
         return info.email
     }
 }
-

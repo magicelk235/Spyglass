@@ -98,6 +98,12 @@ struct ContentView: View {
                 Text("Optional — enables rendered document previews.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                if let err = auth.lastError {
+                    Text(err)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                }
             }
         }
     }

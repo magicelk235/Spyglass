@@ -13,7 +13,7 @@ public struct TokenStore {
     private static let account = "google-oauth"
     private let backend: KeychainBackend
 
-    public init(backend: KeychainBackend = SystemKeychain(group: "com.drivepeak.shared")) {
+    public init(backend: KeychainBackend = SystemKeychain()) {
         self.backend = backend
     }
 
@@ -31,18 +31,26 @@ public struct TokenStore {
     }
 }
 
-/// Real Keychain backed by a shared access group. Requires the
-/// keychain-access-groups entitlement ($(DEVELOPMENT_TEAM).com.drivepeak.shared),
-/// which needs a paid Apple Developer Team ID to sign — exercised manually once
-/// the account lands. ponytail: thin shim, no unit test; logic lives in TokenStore.
+/// Real Keychain backed by the app's first entitled keychain-access-group.
+///
+/// We intentionally omit `kSecAttrAccessGroup` from the query. When omitted,
+/// Keychain Services defaults to the process's first entitled access group —
+/// which is `$(AppIdentifierPrefix)com.drivepeak.shared` from the entitlements.
+/// That resolves at runtime to `<TeamID>.com.drivepeak.shared`, the exact
+/// team-prefixed string the entitlement actually grants.
+///
+/// Passing the bare, unqualified string "com.drivepeak.shared" instead would
+/// never match an entitled group (they all carry the team prefix), causing
+/// SecItemAdd to return errSecMissingEntitlement (-34018) and silently breaking
+/// Tier 1 on any signed build.
+///
+/// ponytail: thin shim, no unit test; logic lives in TokenStore.
 public final class SystemKeychain: KeychainBackend {
-    private let group: String
-    public init(group: String) { self.group = group }
+    public init() {}
 
     private func baseQuery(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrAccount as String: account,
-         kSecAttrAccessGroup as String: group]
+         kSecAttrAccount as String: account]
     }
 
     public func set(_ data: Data, account: String) throws {

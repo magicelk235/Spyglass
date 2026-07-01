@@ -38,6 +38,10 @@ preview is never blank and never hangs.
 ## Build & install (Tier 0)
 
 ```sh
+# Copy the OAuth plist template so the build can find the resource reference.
+# Tier 0 works fine with the placeholder — no real client id needed.
+cp GoogleOAuth.plist.example GoogleOAuth.plist
+
 xcodegen generate
 
 # Build to a clean location (avoids xattr/codesign issues from iCloud/Desktop):
