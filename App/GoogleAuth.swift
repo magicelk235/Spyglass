@@ -110,6 +110,10 @@ public final class GoogleAuth {
         NSWorkspace.shared.open(authURL)
 
         // 3. Wait for the redirect callback.
+        // ponytail: no wall-clock timeout — a codeless/garbage first request
+        // already resolves with .noCode (see the listener handler), so the
+        // common hang is covered. A pure "user abandons the tab" hang remains;
+        // add a timeout race if that proves to matter in use.
         let redirectURL = try await withCheckedThrowingContinuation { (c: CheckedContinuation<URL, Error>) in
             // ContinuationBox is MainActor-isolated; this closure runs on the
             // same actor because signIn() is @MainActor.
@@ -177,9 +181,15 @@ public final class GoogleAuth {
                     let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
                     conn.send(content: Data(response.utf8), completion: .idempotent)
 
-                    if let url = URL(string: full) {
+                    // Resolve on the first request that carries a path. A parseable
+                    // URL → success; a request line we can't turn into a URL →
+                    // failure (rather than a silent hang). Truly empty/garbage
+                    // reads fall through and let a later connection resolve.
+                    if !path.isEmpty {
+                        let result: Result<URL, Error> = URL(string: full)
+                            .map { .success($0) } ?? .failure(GoogleAuthError.noCode)
                         Task { @MainActor in
-                            box?.resolve(.success(url))
+                            box?.resolve(result)
                         }
                     }
                 }
@@ -272,3 +282,4 @@ public final class GoogleAuth {
         return info.email
     }
 }
+

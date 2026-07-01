@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
     <!-- App is sandboxed (required for the embedded extension to activate).
-         Network + user-selected file access for sign-in and the "open a file"
-         button. The shared Keychain access group for the OAuth token lands with
-         the auth work (needs a real Team ID to sign) — see docs/PLAN.md §5. -->
+         Outgoing network for sign-in; incoming (server) for the loopback OAuth
+         listener; user-selected file read for the "open a file" button. The
+         App Group holds the rendered-PDF cache and the Keychain group holds the
+         OAuth token, both shared with the extension. The Keychain/App-Group
+         entitlements are enforced only when signed with a real Team ID. -->
     <key>com.apple.security.app-sandbox</key>
     <true/>
     <key>com.apple.security.network.client</key>
@@ -24,4 +26,3 @@
     </array>
 </dict>
 </plist>
-PLIST && pwd -P >| /tmp/claude-2cec-cwd
