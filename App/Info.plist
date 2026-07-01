@@ -23,6 +23,11 @@
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
 
+    <!-- Menu-bar agent: no Dock icon, no window on launch. The extension wakes
+         this app headless to fetch previews; the UI lives in the MenuBarExtra. -->
+    <key>LSUIElement</key>
+    <true/>
+
     <!--
       Exported type declarations. macOS types Google stub files as an anonymous
       dyn.* UTI; declaring our own UTIs (conforming to public.json) is what lets
