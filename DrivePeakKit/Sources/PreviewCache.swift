@@ -24,7 +24,7 @@ public struct PreviewCache {
 
     public func store(docID: String, modifiedTime: String, pdf: Data) throws {
         try FileManager.default.createDirectory(at: previewsDir, withIntermediateDirectories: true)
-        try pdf.write(to: pdfURL(docID))
+        try pdf.write(to: pdfURL(docID), options: .atomic)
         try modifiedTime.write(to: metaURL(docID), atomically: true, encoding: .utf8)
     }
 

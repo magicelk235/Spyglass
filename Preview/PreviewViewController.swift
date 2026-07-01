@@ -77,15 +77,17 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         }
     }
 
-    /// Installs a PDFView rendering `data` as the view's sole subview.
-    /// Called on the main thread after the timeout closure returns.
-    private func showPDF(_ data: Data) {
+    /// Renders the PDF. Returns false (rendering nothing) if the data isn't a
+    /// loadable PDF, so the caller can fall back to the Tier 0 card.
+    private func showPDF(_ data: Data) -> Bool {
+        guard let doc = PDFDocument(data: data) else { return false }
         let pdfView = PDFView(frame: view.bounds)
         pdfView.autoresizingMask = [.width, .height]
         pdfView.autoScales = true
-        pdfView.document = PDFDocument(data: data)
+        pdfView.document = doc
         view.subviews.forEach { $0.removeFromSuperview() }
         view.addSubview(pdfView)
+        return true
     }
 
     /// Installs a SwiftUI hosting view as the view's sole subview.
@@ -114,7 +116,7 @@ private func withTimeout<T: Sendable>(
             throw CancellationError()
         }
         // First result wins; cancel the loser.
-        let result = try await group.next()!
+        guard let result = try await group.next() else { throw CancellationError() }
         group.cancelAll()
         return result
     }
