@@ -5,6 +5,10 @@ options:
     macOS: "14.0"
   createIntermediateGroups: true
 
+configFiles:
+  Debug: Secrets.xcconfig
+  Release: Secrets.xcconfig
+
 settings:
   base:
     MARKETING_VERSION: "0.1.0"

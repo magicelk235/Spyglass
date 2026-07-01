@@ -12,5 +12,13 @@
     <true/>
     <key>com.apple.security.files.user-selected.read-only</key>
     <true/>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.drivepeak.shared</string>
+    </array>
+    <key>keychain-access-groups</key>
+    <array>
+        <string>$(AppIdentifierPrefix)com.drivepeak.shared</string>
+    </array>
 </dict>
 </plist>
