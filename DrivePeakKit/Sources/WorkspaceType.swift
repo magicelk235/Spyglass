@@ -81,4 +81,18 @@ public enum WorkspaceType: String, CaseIterable, Sendable {
         case .site: "globe"
         }
     }
+
+    /// Brand color as sRGB components (0–1). Kept as a tuple so the model layer
+    /// stays free of any UI framework; the view maps it to a `Color`.
+    /// Values approximate each product's official brand color.
+    public var brandColor: (red: Double, green: Double, blue: Double) {
+        switch self {
+        case .doc:     (0.26, 0.52, 0.96)  // #4285F4 blue
+        case .sheet:   (0.13, 0.66, 0.42)  // #22A45D green
+        case .slides:  (0.96, 0.73, 0.20)  // #F4B933 yellow
+        case .drawing: (0.85, 0.32, 0.24)  // #D9513D red
+        case .form:    (0.49, 0.24, 0.64)  // #7E3DA3 purple
+        case .site:    (0.02, 0.62, 0.60)  // #049E99 teal
+        }
+    }
 }
