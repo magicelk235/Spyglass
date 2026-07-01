@@ -8,5 +8,8 @@ Secrets.xcconfig
 # xcodegen-generated project (regenerate with: xcodegen generate)
 DrivePeak.xcodeproj/
 
-# Google OAuth client secret — never commit
+# Google OAuth — never commit
 client_secret_*.json
+GoogleOAuth.plist
+
+.superpowers/

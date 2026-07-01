@@ -29,7 +29,10 @@ targets:
   DrivePeak:
     type: application
     platform: macOS
-    sources: [App]
+    sources:
+      - path: App
+      - path: GoogleOAuth.plist
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app
@@ -45,7 +48,10 @@ targets:
   DrivePeakPreview:
     type: app-extension
     platform: macOS
-    sources: [Preview]
+    sources:
+      - path: Preview
+      - path: GoogleOAuth.plist
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app.preview
