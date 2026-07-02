@@ -1,106 +1,118 @@
 import SwiftUI
 import DrivePeakKit
 
+/// Single centered column, System-Settings-style grouped Form. Follows the
+/// macOS HIG: hero content centered and near the top, controls grouped with
+/// native material and negative space, minimal settings.
 struct ContentView: View {
     @EnvironmentObject private var auth: GoogleAuth
 
-    // A live sample so users see exactly what a preview looks like.
-    @State private var sampleType: WorkspaceType = .doc
-
-    // Tier 1 license (Gumroad). isPro is read from the shared App Group.
     @State private var isPro = LicenseStore().isPro
     @State private var licenseInput = ""
     @State private var activating = false
     @State private var licenseError: String?
 
-    private var sampleStub: Stub {
-        Stub(
-            type: sampleType,
-            title: "Sample \(sampleType.displayName)",
-            docID: "1AbCdEf_ExampleDocId_1234567890",
-            ownerEmail: "you@example.com"
-        )
-    }
-
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
+        VStack(spacing: 0) {
+            hero
             Divider()
-            StubCardView(stub: sampleStub)
-                .frame(width: 300)
-                .id(sampleType)   // re-render card when type changes
-        }
-        .frame(width: 640, height: 440)
-    }
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 28) {
-            header
-            typePicker
-            licenseSection
-            if isPro { authSection }
-            Spacer()
-            footer
-        }
-        .padding(28)
-        .frame(width: 340, alignment: .topLeading)
-    }
-
-    private var header: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "mountain.2.fill")
-                .font(.system(size: 26))
-                .foregroundStyle(.tint)
-            VStack(alignment: .leading, spacing: 1) {
-                Text("DrivePeak").font(.title2).bold()
-                Text("Previews for Google Workspace files")
-                    .font(.caption).foregroundStyle(.secondary)
+            Form {
+                statusSection
+                if isPro { accountSection }
             }
+            .formStyle(.grouped)
         }
+        .frame(width: 460, height: 520)
     }
 
-    // Compact menu picker replaces the six-button list — one row, not six.
-    private var typePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Preview").font(.subheadline).foregroundStyle(.secondary)
-            Picker("", selection: $sampleType) {
-                ForEach(WorkspaceType.allCases, id: \.self) { type in
-                    Label(type.displayName, systemImage: type.systemImage).tag(type)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
+    // MARK: - Hero
+
+    private var hero: some View {
+        VStack(spacing: 10) {
+            // The real app icon reads as "premium app", not a glyph in a circle.
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 76, height: 76)
+            Text("DrivePeak").font(.title).bold()
+            Text("Real Quick Look previews for Google Workspace files")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 320)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 32)
+        .padding(.bottom, 24)
     }
 
-    // MARK: - Tier 1 license
+    // MARK: - Status / license
 
     @ViewBuilder
-    private var licenseSection: some View {
+    private var statusSection: some View {
         if isPro {
-            Label("Tier 1 unlocked", systemImage: "checkmark.seal.fill")
-                .foregroundStyle(.green).font(.subheadline).bold()
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Unlock Tier 1").font(.subheadline).bold()
-                    Text("Rendered previews · $9 once")
-                        .font(.caption).foregroundStyle(.secondary)
+            Section {
+                LabeledContent {
+                    Label("Unlocked", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.green).labelStyle(.titleAndIcon)
+                } label: {
+                    Text("Tier 1")
                 }
-                HStack(spacing: 6) {
+            } header: {
+                Text("Rendered previews")
+            } footer: {
+                Text("Docs, Sheets, Slides and Drawings render their real first page. Forms and Sites show the info card.")
+            }
+        } else {
+            Section {
+                HStack(spacing: 8) {
                     TextField("License key", text: $licenseInput)
                         .textFieldStyle(.roundedBorder)
-                        .font(.caption)
                         .onSubmit(activate)
-                    Button(activating ? "…" : "Unlock", action: activate)
+                    Button(activating ? "Checking…" : "Unlock", action: activate)
                         .disabled(activating || licenseInput.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 if let err = licenseError {
-                    Text(err).font(.caption2).foregroundStyle(.red).lineLimit(2)
+                    Text(err).font(.callout).foregroundStyle(.red)
                 }
-                Link("Buy a key", destination: URL(string: "https://gumroad.com/l/drivepeak")!)
-                    .font(.caption2)
+                Link("Buy a key — $9, one-time",
+                     destination: URL(string: "https://gumroad.com/l/drivepeak")!)
+            } header: {
+                Text("Unlock Tier 1")
+            } footer: {
+                Text("Tier 0 info cards work now for all six types, no sign-in. Tier 1 adds real rendered previews.")
             }
+        }
+    }
+
+    // MARK: - Account (Tier 1 only)
+
+    @ViewBuilder
+    private var accountSection: some View {
+        Section {
+            if let email = auth.email {
+                LabeledContent("Google") {
+                    HStack(spacing: 8) {
+                        Text(email).lineLimit(1).truncationMode(.middle)
+                        Button("Sign out") { auth.signOut() }.buttonStyle(.link)
+                    }
+                }
+            } else {
+                Button {
+                    Task { try? await auth.signIn() }
+                } label: {
+                    Label(auth.isSigningIn ? "Signing in…" : "Sign in with Google",
+                          systemImage: "person.badge.key")
+                }
+                .disabled(auth.isSigningIn)
+                if let err = auth.lastError {
+                    Text(err).font(.callout).foregroundStyle(.red)
+                }
+            }
+        } header: {
+            Text("Account")
+        } footer: {
+            Text("Sign-in lets DrivePeak fetch and render your documents.")
         }
     }
 
@@ -117,40 +129,6 @@ struct ContentView: View {
             }
             activating = false
         }
-    }
-
-    // MARK: - Google sign-in (Tier 1 only)
-
-    @ViewBuilder
-    private var authSection: some View {
-        if let email = auth.email {
-            HStack(spacing: 6) {
-                Image(systemName: "person.crop.circle.fill.badge.checkmark")
-                    .foregroundStyle(.green)
-                Text(email).lineLimit(1).font(.caption)
-                Spacer()
-                Button("Sign out") { auth.signOut() }
-                    .buttonStyle(.link).font(.caption)
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 4) {
-                Button {
-                    Task { try? await auth.signIn() }
-                } label: {
-                    Label(auth.isSigningIn ? "Signing in…" : "Sign in with Google",
-                          systemImage: "person.badge.key")
-                }
-                .disabled(auth.isSigningIn)
-                if let err = auth.lastError {
-                    Text(err).font(.caption2).foregroundStyle(.red).lineLimit(2)
-                }
-            }
-        }
-    }
-
-    private var footer: some View {
-        Label("Press Space on a Google file in Finder.", systemImage: "space")
-            .font(.caption).foregroundStyle(.secondary)
     }
 }
 
