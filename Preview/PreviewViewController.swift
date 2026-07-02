@@ -65,6 +65,14 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         pdfView.document = doc
         view.subviews.forEach { $0.removeFromSuperview() }
         view.addSubview(pdfView)
+        // A PDFView assigned its document before layout lands scrolled to the
+        // last page. Force it back to page 1 after the scroll view has sized.
+        if let first = doc.page(at: 0) {
+            // PDF coords have origin at bottom-left, so the top of the page is
+            // (0, height). Scroll there so page 1 shows from the top.
+            let top = CGPoint(x: 0, y: first.bounds(for: .mediaBox).height)
+            DispatchQueue.main.async { pdfView.go(to: PDFDestination(page: first, at: top)) }
+        }
         return true
     }
 
