@@ -11,6 +11,7 @@ struct ContentView: View {
     @State private var licenseInput = ""
     @State private var activating = false
     @State private var licenseError: String?
+    @State private var driveBlocked = DriveAccess.isBlocked()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,9 +19,14 @@ struct ContentView: View {
             Divider()
             Form {
                 statusSection
+                if isPro && driveBlocked { fullDiskSection }
                 if isPro { accountSection }
             }
             .formStyle(.grouped)
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                // Re-check when the user comes back from System Settings.
+                driveBlocked = DriveAccess.isBlocked()
+            }
         }
         .frame(width: 460, height: 520)
     }
@@ -82,6 +88,22 @@ struct ContentView: View {
             } footer: {
                 Text("Tier 0 info cards work now for all six types, no sign-in. Tier 1 adds real rendered previews.")
             }
+        }
+    }
+
+    // MARK: - Full Disk Access
+
+    private var fullDiskSection: some View {
+        Section {
+            Button {
+                DriveAccess.openSettings()
+            } label: {
+                Label("Open Full Disk Access settings", systemImage: "lock.open")
+            }
+        } header: {
+            Text("Action needed")
+        } footer: {
+            Text("DrivePeak needs Full Disk Access to read your Google Drive and render previews. Turn it on for DrivePeak, then relaunch.")
         }
     }
 
