@@ -20,7 +20,7 @@ struct DrivePeakApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("DrivePeak", systemImage: "eye.circle.fill") {
+        MenuBarExtra("DrivePeak", systemImage: "mountain.2.fill") {
             ContentView()
                 .environmentObject(auth)
                 .onAppear { auth.restore() }
