@@ -13,3 +13,7 @@ client_secret_*.json
 GoogleOAuth.plist
 
 .superpowers/
+
+# DMG build artifacts (regenerate with dmg/build-dmg.sh)
+dmg/DrivePeak.dmg
+dmg/assets/dmg-preview.png
