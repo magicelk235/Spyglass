@@ -3,6 +3,11 @@ import Network
 import AppKit
 import DrivePeakKit
 
+public extension Notification.Name {
+    /// Posted by GoogleAuth after a successful sign-in.
+    static let drivePeakDidSignIn = Notification.Name("drivePeakDidSignIn")
+}
+
 // MARK: - Errors
 
 public enum GoogleAuthError: Error, LocalizedError {
@@ -165,6 +170,10 @@ public final class GoogleAuth: ObservableObject {
         // 6. Persist — email is set only after save succeeds.
         try store.save(tokens)
         self.email = tokens.email
+        // Tell the scanner to sweep now: pre-launch stubs couldn't be fetched
+        // without a token, so a fresh sign-in should enqueue them immediately
+        // rather than waiting for the next app launch.
+        NotificationCenter.default.post(name: .drivePeakDidSignIn, object: nil)
     }
 
     // MARK: - Listener

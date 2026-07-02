@@ -26,7 +26,12 @@ final class StubScanner: NSObject {
     func start() {
         directSweep()
         startSpotlight()
+        // A fresh sign-in makes previously-undownloadable stubs fetchable.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(reSweep), name: .drivePeakDidSignIn, object: nil)
     }
+
+    @objc private func reSweep() { directSweep() }
 
     // MARK: - Spotlight live query
 
