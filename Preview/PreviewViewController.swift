@@ -38,7 +38,11 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         // Freshness can't be checked here (needs metadata = network); the app
         // validated modifiedTime when it wrote the cache and revalidates on
         // every scan pass.
-        if stub.type.isExportable,
+        // Tier 1 (rendered PDF) requires a valid license. Gate the READ, not
+        // just the app's fetch: a stale/trial cache must never leak a rendered
+        // preview to an unlicensed user. No license -> fall through to Tier 0.
+        if LicenseStore().isPro,
+           stub.type.isExportable,
            let container = FetchQueue.groupContainerURL(),
            let pdf = PreviewCache(directory: container).anyCachedPDF(docID: stub.docID),
            showPDF(pdf) {
