@@ -34,20 +34,25 @@ func render(scale: CGFloat, to path: String) {
     mountain(peakX: 300, peakY: 150, baseHalf: 220, alpha: 0.05)
     mountain(peakX: 180, peakY: 105, baseHalf: 150, alpha: 0.06)
 
-    // Thin arrow between the two icon slots (icon @150, Applications @510).
+    // Chunky filled arrow glyph, centered between icon @150 and Applications @510.
     let arrowY: CGFloat = 210
-    ctx.setStrokeColor(CGColor(colorSpace: space, components: [1, 1, 1, 0.28])!)
-    ctx.setLineWidth(2)
-    ctx.setLineCap(.round)
+    let cx: CGFloat = 330               // horizontal center of the glyph
+    let shaftH: CGFloat = 14            // shaft thickness
+    let shaftLen: CGFloat = 34          // shaft length (short)
+    let headW: CGFloat = 26            // arrowhead length
+    let headH: CGFloat = 34            // arrowhead half-height * 2
+    let x0 = cx - (shaftLen + headW) / 2
+    ctx.setFillColor(CGColor(colorSpace: space, components: [1, 1, 1, 0.34])!)
     ctx.beginPath()
-    ctx.move(to: CGPoint(x: 258, y: arrowY))
-    ctx.addLine(to: CGPoint(x: 402, y: arrowY))
-    ctx.strokePath()
-    ctx.beginPath() // arrowhead
-    ctx.move(to: CGPoint(x: 390, y: arrowY + 8))
-    ctx.addLine(to: CGPoint(x: 402, y: arrowY))
-    ctx.addLine(to: CGPoint(x: 390, y: arrowY - 8))
-    ctx.strokePath()
+    ctx.move(to: CGPoint(x: x0,                 y: arrowY + shaftH / 2))
+    ctx.addLine(to: CGPoint(x: x0 + shaftLen,   y: arrowY + shaftH / 2))
+    ctx.addLine(to: CGPoint(x: x0 + shaftLen,   y: arrowY + headH / 2))
+    ctx.addLine(to: CGPoint(x: x0 + shaftLen + headW, y: arrowY))     // tip
+    ctx.addLine(to: CGPoint(x: x0 + shaftLen,   y: arrowY - headH / 2))
+    ctx.addLine(to: CGPoint(x: x0 + shaftLen,   y: arrowY - shaftH / 2))
+    ctx.addLine(to: CGPoint(x: x0,              y: arrowY - shaftH / 2))
+    ctx.closePath()
+    ctx.fillPath()
 
     // Text via NSAttributedString drawn into the same CG context (flipped).
     func drawText(_ s: String, x: CGFloat, y: CGFloat, size: CGFloat, weight: NSFont.Weight, alpha: CGFloat, tracking: CGFloat = 0) {
@@ -67,7 +72,7 @@ func render(scale: CGFloat, to path: String) {
     drawText("Real Quick Look previews for Google Workspace files",
              x: 41, y: H - 88, size: 12.5, weight: .regular, alpha: 0.5)
     // Caption under the arrow.
-    drawText("drag to install", x: 285, y: arrowY - 44, size: 11, weight: .medium, alpha: 0.4, tracking: 1.5)
+    drawText("drag to install", x: 288, y: arrowY - 48, size: 11, weight: .medium, alpha: 0.4, tracking: 1.5)
 
     guard let img = ctx.makeImage() else { return }
     let rep = NSBitmapImageRep(cgImage: img)
