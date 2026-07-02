@@ -88,9 +88,10 @@ final class FetchWorker: NSObject {
         let docIDs = (FetchQueue.takeRequests() + queue.pending()).filter { seen.insert($0).inserted }
         guard !docIDs.isEmpty else { return }
 
-        // No sign-in → nothing we can fetch; drop the markers so the dir
-        // doesn't grow. The extension keeps showing Tier 0.
-        guard TokenStore().load() != nil, let clientID = OAuthConfig.clientID() else {
+        // No pro license or no sign-in → nothing we fetch; drop the markers so
+        // the dir doesn't grow. The extension keeps showing the free Tier 0 card.
+        guard LicenseStore().isPro,
+              TokenStore().load() != nil, let clientID = OAuthConfig.clientID() else {
             docIDs.forEach { queue.complete(docID: $0) }
             return
         }

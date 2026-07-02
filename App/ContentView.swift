@@ -7,6 +7,12 @@ struct ContentView: View {
     // A live sample so users see exactly what a preview looks like.
     @State private var sampleType: WorkspaceType = .doc
 
+    // Tier 1 license (Gumroad). isPro is read from the shared App Group.
+    @State private var isPro = LicenseStore().isPro
+    @State private var licenseInput = ""
+    @State private var activating = false
+    @State private var licenseError: String?
+
     private var sampleStub: Stub {
         Stub(
             type: sampleType,
@@ -60,7 +66,13 @@ struct ContentView: View {
 
             Divider()
 
-            authSection
+            licenseSection
+
+            // Sign-in only matters once Tier 1 is unlocked.
+            if isPro {
+                Divider()
+                authSection
+            }
 
             Spacer()
 
@@ -75,6 +87,59 @@ struct ContentView: View {
         .padding(20)
         .frame(width: 340, alignment: .topLeading)
     }
+
+    // MARK: - Tier 1 license
+
+    @ViewBuilder
+    private var licenseSection: some View {
+        if isPro {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Tier 1 unlocked", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green).font(.callout).bold()
+                Text("Rendered previews for Docs, Sheets, Slides & Drawings.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Unlock Tier 1").font(.headline)
+                Text("Rendered document previews — $9, one-time.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 6) {
+                    TextField("License key", text: $licenseInput)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                        .onSubmit(activate)
+                    Button(activating ? "…" : "Unlock", action: activate)
+                        .disabled(activating || licenseInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                if let err = licenseError {
+                    Text(err).font(.caption2).foregroundStyle(.red).lineLimit(2)
+                }
+                Link("Buy a key on Gumroad",
+                     destination: URL(string: "https://gumroad.com/l/drivepeak")!)
+                    .font(.caption2)
+            }
+        }
+    }
+
+    private func activate() {
+        let key = licenseInput
+        activating = true
+        licenseError = nil
+        Task {
+            do {
+                try await LicenseStore().activate(key: key)
+                isPro = true
+            } catch {
+                licenseError = error.localizedDescription
+            }
+            activating = false
+        }
+    }
+
+    // MARK: - Google sign-in (Tier 1 only)
 
     @ViewBuilder
     private var authSection: some View {
@@ -97,7 +162,7 @@ struct ContentView: View {
                           systemImage: "person.badge.key")
                 }
                 .disabled(auth.isSigningIn)   // no concurrent sign-in flows
-                Text("Optional — enables rendered document previews.")
+                Text("Required for rendered previews.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 if let err = auth.lastError {
