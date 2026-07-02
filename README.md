@@ -31,9 +31,9 @@ preview is never blank and never hangs.
 - Xcode (full install, not just Command Line Tools).
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`) —
   the `.xcodeproj` is generated from `project.yml`, not committed.
-- **Tier 1 only:** a Google Cloud OAuth client and (for the shared token between
-  app and extension) a paid Apple Developer account. See below. Tier 0 needs
-  neither.
+- **Tier 1 only:** a Google Cloud OAuth client (free) and a free Apple ID added
+  to Xcode (personal team) to sign the shared App Group/Keychain entitlements.
+  See below. Tier 0 needs neither.
 
 ## Build & install (Tier 0)
 
@@ -107,32 +107,32 @@ Tier 1 is optional. It needs two things Tier 0 doesn't.
    No client secret is stored — DrivePeak uses the PKCE flow, which doesn't need
    one at runtime.
 
-### 2. A paid Apple Developer account (for signing)
+### 2. Signing with a free personal team
 
-The app and the extension are separate sandboxed processes. They share the OAuth
-token through a **shared Keychain access group** and the rendered-PDF cache
-through an **App Group** — both require entitlements that macOS will only sign
-with a real Team ID (ad-hoc signing is rejected). So Tier 1 needs a paid Apple
-Developer account.
+The app and the extension share the OAuth token (Keychain access group) and the
+rendered-PDF cache (App Group). Both entitlements need a real Team ID — Xcode's
+free personal team works (apps re-sign after 7 days).
 
-Once you have your Team ID:
+1. Xcode → Settings → Accounts → add your Apple ID (creates a personal team).
+2. Put the team ID in `Secrets.xcconfig` (gitignored):
+   `DEVELOPMENT_TEAM = YOURTEAMID`
+3. `xcodegen generate`, open the project in Xcode once and let it provision
+   both targets (Signing & Capabilities), then build/install as above.
+4. Click the menu-bar eye icon and click **Sign in with Google**. A browser tab
+   opens for consent; approve it and the signed-in email shows in the popover.
 
-1. Put it in `Secrets.xcconfig` (gitignored) at the repo root:
+Now Space on a Doc / Sheet / Slides / Drawing renders the real document.
 
-   ```
-   DEVELOPMENT_TEAM = ABCDE12345
-   ```
+### How Tier 1 fetches work
 
-2. In `project.yml`, change `CODE_SIGN_IDENTITY` from `"-"` to
-   `"Apple Development"`, then `xcodegen generate` and rebuild/reinstall.
-
-3. Open the app and click **Sign in with Google**. A browser tab opens for
-   consent; approve it, and the tab reports success. The signed-in email shows in
-   the app.
-
-Now Space on a Doc / Sheet / Slides / Drawing renders the real document. The
-first open of a file waits on the network (falling back to the card if it's
-slow); repeat opens are instant from the cache.
+The Quick Look extension's sandbox is write-locked and cannot reach the network
+(DNS resolution is denied), so it never fetches anything — it only reads the
+shared cache. The app is a menu-bar agent (no Dock icon) that discovers stub
+files on disk (a Spotlight live query plus a sweep of the Google Drive mounts
+under `~/Library/CloudStorage`), pre-fetches each document's PDF export, and
+keeps the cache warm. New or edited documents are re-fetched automatically when
+the scanner re-encounters them (the worker skips docs whose `modifiedTime` is
+unchanged). The app registers itself as a login item so previews stay warm.
 
 ## How it works
 
@@ -141,14 +141,19 @@ slow); repeat opens are instant from the cache.
 - The app declares custom UTIs (`com.drivepeak.*`) via `UTExportedTypeDeclarations`
   so macOS routes these otherwise-anonymous stub files to the extension.
 - The extension is a modern **view-based** `QLPreviewingController`
-  (`preparePreviewOfFile(at:)`), sandboxed — the sandbox is required for a
-  preview extension to activate at all.
+  (`preparePreviewOfFile(at:)`), sandboxed — required for a preview extension
+  to activate. The host app is deliberately NOT sandboxed: the extension's
+  sandbox is write-locked, so the app must scan the disk for stubs and do all
+  fetching itself.
 - Tier 1's token lives in the shared Keychain; the exported PDF is cached in the
   App Group container, keyed by the doc's `modifiedTime` so edits invalidate it.
 
 ## Known limitations
 
-- Tier 1 requires the paid Apple Developer account (above).
+- A document synced *after* the last scan pass shows the Tier 0 card until the
+  scanner re-encounters it (Spotlight updates usually land within seconds).
+- The extension can't validate cache freshness itself (no network); a just-
+  edited doc may render one revision stale until the worker revalidates it.
 - Forms and Sites can't be exported by the Drive API, so they always show the
   Tier 0 card.
 - The sign-in flow has no wall-clock timeout for an abandoned browser tab yet;

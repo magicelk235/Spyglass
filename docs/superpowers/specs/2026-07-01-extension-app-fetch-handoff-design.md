@@ -1,7 +1,7 @@
 # DrivePeak — Extension→App Fetch Handoff
 
 **Date:** 2026-07-01
-**Status:** Design (pending user review)
+**Status:** Implemented (with pivot — see Addendum)
 
 ## Problem
 
@@ -190,3 +190,30 @@ The very first Space on a never-fetched doc may show the Tier 0 card if the
 fetch doesn't finish within ~1.5 s. Every subsequent Space on that doc is an
 instant real preview. This is the irreducible cost of the extension having no
 network — deemed acceptable for best achievable UX.
+
+
+## Addendum (implementation outcome)
+
+The marker-file + wake design failed on two further sandbox walls discovered
+during implementation:
+
+1. The extension cannot WRITE the group container at all (`EPERM`), so marker
+   files can't be created by the extension.
+2. Shared-UserDefaults writes are also denied (`cfprefsd`: "setting preferences
+   outside an application's container requires user-preference-write"), and
+   `NSWorkspace.openApplication` is denied ("missing (allow lsopen)").
+
+The QL extension is effectively read-only + no-IPC. Final architecture:
+
+- The **app is unsandboxed** (extensions must be sandboxed; hosts need not be).
+- A `StubScanner` in the app discovers stub files (Spotlight live query + sweep
+  of `~/Library/CloudStorage/GoogleDrive-*`) and enqueues docIDs into the
+  marker queue itself.
+- `FetchWorker` unchanged: drains markers, fetches, writes cache.
+- The extension is a pure cache reader: cached PDF → render; else Tier 0. No
+  enqueue, no wake, no poll.
+- The app registers as a login item (`SMAppService.mainApp`) so the cache stays
+  warm without user action.
+
+`FetchQueue.postRequest/takeRequests` (UserDefaults channel) remains in the Kit
+with tests; the worker still drains it, though nothing posts to it today.
