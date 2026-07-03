@@ -20,7 +20,7 @@ struct SpyglassApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("Spyglass", systemImage: "mountain.2.fill") {
+        MenuBarExtra("Spyglass", systemImage: "binoculars.fill") {
             ContentView()
                 .environmentObject(auth)
                 .onAppear { auth.restore() }
