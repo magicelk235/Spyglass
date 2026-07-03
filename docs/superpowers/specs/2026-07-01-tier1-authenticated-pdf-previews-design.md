@@ -63,10 +63,10 @@ Loopback OAuth 2.0 with PKCE (desktop client type; redirect `http://localhost`).
 
 Lives in the app; the extension never runs the interactive dance.
 
-### 2. `TokenStore` (DrivePeakKit, shared)
+### 2. `TokenStore` (SpyglassKit, shared)
 
 Reads/writes tokens to a **shared Keychain access group**
-(`$(DEVELOPMENT_TEAM).com.drivepeak.shared`). Refresh token is a long-lived
+(`$(DEVELOPMENT_TEAM).com.spyglass.shared`). Refresh token is a long-lived
 credential → Keychain (encrypted at rest, OS-managed), not a plaintext file.
 
 ```
@@ -76,9 +76,9 @@ func load() -> Tokens?
 func clear() throws
 ```
 
-Both app (writes) and extension (reads) link DrivePeakKit and thus this type.
+Both app (writes) and extension (reads) link SpyglassKit and thus this type.
 
-### 3. `DriveClient` (DrivePeakKit, shared)
+### 3. `DriveClient` (SpyglassKit, shared)
 
 Given a valid access token + docID + type:
 
@@ -92,10 +92,10 @@ Given a valid access token + docID + type:
 
 Injectable `URLSession` so unit tests can stub via `URLProtocol`.
 
-### 4. `PreviewCache` (DrivePeakKit, shared)
+### 4. `PreviewCache` (SpyglassKit, shared)
 
 Caches exported PDFs in the shared **App Group** container
-(`group.com.drivepeak.shared`) keyed by `docID`, invalidated by `modifiedTime`.
+(`group.com.spyglass.shared`) keyed by `docID`, invalidated by `modifiedTime`.
 
 ```
 <group-container>/previews/<docID>.pdf
@@ -137,8 +137,8 @@ Add a sign-in row:
 
 ## Entitlements & signing (needs the paid Apple Developer account)
 
-- Both targets: `keychain-access-groups: [$(DEVELOPMENT_TEAM).com.drivepeak.shared]`.
-- Both targets: App Group `group.com.drivepeak.shared`.
+- Both targets: `keychain-access-groups: [$(DEVELOPMENT_TEAM).com.spyglass.shared]`.
+- Both targets: App Group `group.com.spyglass.shared`.
 - Signing moves from ad-hoc `-` to the Developer identity once the Team ID exists.
 
 **Build-today provision (Apple account is ~1–3 days out):** `DEVELOPMENT_TEAM`

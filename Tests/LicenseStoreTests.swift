@@ -1,5 +1,5 @@
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 final class LicenseStoreTests: XCTestCase {
     private func data(_ s: String) -> Data { Data(s.utf8) }

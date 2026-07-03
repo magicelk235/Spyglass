@@ -1,6 +1,6 @@
 import Foundation
 
-/// The six Google Workspace stub file types DrivePeak previews.
+/// The six Google Workspace stub file types Spyglass previews.
 ///
 /// Single source of truth: filename extension, custom UTI, Google URL path,
 /// export capability, and display identity all derive from this enum. Nothing
@@ -27,7 +27,7 @@ public enum WorkspaceType: String, CaseIterable, Sendable {
 
     /// The custom UTI the app declares so Quick Look routes the file to us.
     /// macOS otherwise types these files as an anonymous `dyn.*` UTI.
-    public var uti: String { "com.drivepeak.\(rawValue)" }
+    public var uti: String { "com.spyglass.\(rawValue)" }
 
     public init?(fileExtension ext: String) {
         let normalized = ext.lowercased()

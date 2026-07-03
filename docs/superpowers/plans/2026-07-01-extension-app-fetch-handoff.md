@@ -11,13 +11,13 @@
 ## Global Constraints
 
 - macOS deployment target 14.0 (from `project.yml`).
-- App Group ID: `group.com.drivepeak.shared` (must match entitlements exactly).
+- App Group ID: `group.com.spyglass.shared` (must match entitlements exactly).
 - Free personal team signing: `DEVELOPMENT_TEAM = R28RG6QC6S`, `CODE_SIGN_STYLE: Automatic` — do not change signing settings.
 - Extension must NEVER make a network call (its sandbox cannot resolve DNS).
 - Preview must never hang: worst case ~1.5 s poll then Tier 0 card.
 - Untrusted `docID` from stub files: filenames derived only via SHA-256 hex (existing `PreviewCache` pattern).
-- Build command: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd -allowProvisioningUpdates`
-- Test command: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd`
+- Build command: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd -allowProvisioningUpdates`
+- Test command: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd`
 - Commits: no Co-Authored-By trailers (user's global git rule).
 
 ---
@@ -25,7 +25,7 @@
 ### Task 1: FetchQueue (marker files in the App Group)
 
 **Files:**
-- Create: `DrivePeakKit/Sources/FetchQueue.swift`
+- Create: `SpyglassKit/Sources/FetchQueue.swift`
 - Test: `Tests/FetchQueueTests.swift`
 - Modify: none
 
@@ -34,7 +34,7 @@
 - Produces (used by Tasks 2 and 4):
   - `public struct FetchQueue`
   - `public init(directory: URL)` — `directory` is the App Group container root; markers live in `<directory>/requests/`.
-  - `public static func groupContainerURL(groupID: String = "group.com.drivepeak.shared") -> URL?`
+  - `public static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL?`
   - `public var requestsDirectory: URL { get }` — the watched directory (worker needs it for DispatchSource).
   - `public func enqueue(docID: String) throws` — idempotent.
   - `public func pending() -> [String]` — docIDs of all markers.
@@ -46,7 +46,7 @@ Create `Tests/FetchQueueTests.swift`:
 
 ```swift
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 final class FetchQueueTests: XCTestCase {
     private func tempDir() -> URL {
@@ -107,13 +107,13 @@ final class FetchQueueTests: XCTestCase {
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd 2>&1 | grep -E "error:|Test Suite|failed"`
+Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd 2>&1 | grep -E "error:|Test Suite|failed"`
 
 Expected: compile FAILURE — `cannot find 'FetchQueue' in scope`. (New files are picked up by XcodeGen path globs; run `xcodegen generate` first so the new test file is in the project.)
 
 - [ ] **Step 3: Write the implementation**
 
-Create `DrivePeakKit/Sources/FetchQueue.swift`:
+Create `SpyglassKit/Sources/FetchQueue.swift`:
 
 ```swift
 import Foundation
@@ -133,7 +133,7 @@ public struct FetchQueue {
         self.requestsDirectory = directory.appendingPathComponent("requests", isDirectory: true)
     }
 
-    public static func groupContainerURL(groupID: String = "group.com.drivepeak.shared") -> URL? {
+    public static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
     }
 
@@ -170,7 +170,7 @@ public struct FetchQueue {
 Run:
 ```bash
 xcodegen generate
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd 2>&1 | grep -E "error:|Test Suite.*(passed|failed)"
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd 2>&1 | grep -E "error:|Test Suite.*(passed|failed)"
 ```
 
 Expected: `Test Suite 'All tests' passed` (all existing suites + FetchQueueTests).
@@ -178,7 +178,7 @@ Expected: `Test Suite 'All tests' passed` (all existing suites + FetchQueueTests
 - [ ] **Step 5: Commit**
 
 ```bash
-git add DrivePeakKit/Sources/FetchQueue.swift Tests/FetchQueueTests.swift
+git add SpyglassKit/Sources/FetchQueue.swift Tests/FetchQueueTests.swift
 git commit -m "Add FetchQueue: App Group marker files for extension→app fetch requests"
 ```
 
@@ -207,9 +207,9 @@ Create `App/FetchWorker.swift`:
 ```swift
 import Foundation
 import OSLog
-import DrivePeakKit
+import SpyglassKit
 
-private let log = Logger(subsystem: "com.drivepeak.app", category: "fetchworker")
+private let log = Logger(subsystem: "com.spyglass.app", category: "fetchworker")
 
 /// Drains the FetchQueue: for each requested docID, fetches metadata + PDF
 /// export from Drive (the app CAN resolve DNS; the extension can't) and writes
@@ -220,7 +220,7 @@ final class FetchWorker {
     private let cache: PreviewCache?
     private var watcher: DispatchSourceFileSystemObject?
     private var draining = false
-    private let workQueue = DispatchQueue(label: "com.drivepeak.fetchworker")
+    private let workQueue = DispatchQueue(label: "com.spyglass.fetchworker")
 
     init() {
         let container = FetchQueue.groupContainerURL()
@@ -309,7 +309,7 @@ final class FetchWorker {
 Run:
 ```bash
 xcodegen generate
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd -allowProvisioningUpdates 2>&1 | grep -E "error:|SUCCEEDED|FAILED"
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd -allowProvisioningUpdates 2>&1 | grep -E "error:|SUCCEEDED|FAILED"
 ```
 
 Expected: `** BUILD SUCCEEDED **`
@@ -327,7 +327,7 @@ git commit -m "Add FetchWorker: app-side drain/watch of fetch requests into the 
 
 **Files:**
 - Modify: `App/Info.plist` (add `LSUIElement`)
-- Modify: `App/DrivePeakApp.swift` (`Window` → `MenuBarExtra`, start worker)
+- Modify: `App/SpyglassApp.swift` (`Window` → `MenuBarExtra`, start worker)
 
 **Interfaces:**
 - Consumes (from Task 2): `FetchWorker()`, `.start()`.
@@ -346,13 +346,13 @@ In `App/Info.plist`, insert directly after the `LSApplicationCategoryType` strin
 
 - [ ] **Step 2: Replace the Window scene with MenuBarExtra**
 
-Replace the whole body of `App/DrivePeakApp.swift` with:
+Replace the whole body of `App/SpyglassApp.swift` with:
 
 ```swift
 import SwiftUI
 
 @main
-struct DrivePeakApp: App {
+struct SpyglassApp: App {
     @StateObject private var auth = GoogleAuth()
     // Held for the app's lifetime; starts draining/watching on launch, including
     // headless launches triggered by the Quick Look extension.
@@ -363,7 +363,7 @@ struct DrivePeakApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("DrivePeak", systemImage: "eye.circle.fill") {
+        MenuBarExtra("Spyglass", systemImage: "eye.circle.fill") {
             ContentView()
                 .environmentObject(auth)
                 .onAppear { auth.restore() }
@@ -377,7 +377,7 @@ struct DrivePeakApp: App {
 
 Run:
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd -allowProvisioningUpdates 2>&1 | grep -E "error:|SUCCEEDED|FAILED"
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd -allowProvisioningUpdates 2>&1 | grep -E "error:|SUCCEEDED|FAILED"
 ```
 
 Expected: `** BUILD SUCCEEDED **`
@@ -385,7 +385,7 @@ Expected: `** BUILD SUCCEEDED **`
 - [ ] **Step 4: Commit**
 
 ```bash
-git add App/Info.plist App/DrivePeakApp.swift
+git add App/Info.plist App/SpyglassApp.swift
 git commit -m "Make app a menu-bar agent (LSUIElement + MenuBarExtra), start FetchWorker on launch"
 ```
 
@@ -413,9 +413,9 @@ import QuickLookUI
 import SwiftUI
 import PDFKit
 import OSLog
-import DrivePeakKit
+import SpyglassKit
 
-private let log = Logger(subsystem: "com.drivepeak.app.preview", category: "preview")
+private let log = Logger(subsystem: "com.spyglass.app.preview", category: "preview")
 
 /// Quick Look Preview Extension entry point.
 ///
@@ -487,11 +487,11 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             return
         }
 
-        // .appex lives at DrivePeak.app/Contents/PlugIns/DrivePeakPreview.appex
+        // .appex lives at Spyglass.app/Contents/PlugIns/SpyglassPreview.appex
         let appURL = Bundle.main.bundleURL
             .deletingLastPathComponent()   // PlugIns/
             .deletingLastPathComponent()   // Contents/
-            .deletingLastPathComponent()   // DrivePeak.app
+            .deletingLastPathComponent()   // Spyglass.app
         let config = NSWorkspace.OpenConfiguration()
         config.activates = false
         config.addsToRecentItems = false
@@ -561,7 +561,7 @@ Expected: no output.
 
 Run:
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd -allowProvisioningUpdates 2>&1 | grep -E "error:|SUCCEEDED|FAILED"
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd -allowProvisioningUpdates 2>&1 | grep -E "error:|SUCCEEDED|FAILED"
 ```
 
 Expected: `** BUILD SUCCEEDED **`
@@ -570,7 +570,7 @@ Expected: `** BUILD SUCCEEDED **`
 
 Run:
 ```bash
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd 2>&1 | grep -E "error:|Test Suite.*(passed|failed)"
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd 2>&1 | grep -E "error:|Test Suite.*(passed|failed)"
 ```
 
 Expected: `Test Suite 'All tests' passed`.
@@ -592,14 +592,14 @@ git commit -m "Extension: replace network fetch with cache read + fetch handoff 
 - [ ] **Step 1: Install the built app**
 
 ```bash
-pkill -x DrivePeak 2>/dev/null
-rm -rf /Applications/DrivePeak.app
-xattr -cr /tmp/drivepeak-dd/Build/Products/Release/DrivePeak.app
-cp -R /tmp/drivepeak-dd/Build/Products/Release/DrivePeak.app /Applications/
-xattr -cr /Applications/DrivePeak.app
-/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f /Applications/DrivePeak.app
+pkill -x Spyglass 2>/dev/null
+rm -rf /Applications/Spyglass.app
+xattr -cr /tmp/spyglass-dd/Build/Products/Release/Spyglass.app
+cp -R /tmp/spyglass-dd/Build/Products/Release/Spyglass.app /Applications/
+xattr -cr /Applications/Spyglass.app
+/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f /Applications/Spyglass.app
 qlmanage -r; qlmanage -r cache
-open /Applications/DrivePeak.app
+open /Applications/Spyglass.app
 ```
 
 Expected: an eye icon appears in the menu bar; NO Dock icon; NO window.
@@ -611,11 +611,11 @@ Expected: an eye icon appears in the menu bar; NO Dock icon; NO window.
 2. Press Space on `test.gdoc` → either a real PDF within ~1.5 s, or the Tier 0
    card; press Space again → real PDF.
 3. Quit the app (menu-bar popover → no quit button exists; use
-   `pkill -x DrivePeak`). Press Space on the file → Tier 0 (cache already has
+   `pkill -x Spyglass`). Press Space on the file → Tier 0 (cache already has
    this doc, so use a NEW Google Doc for the cold test) → app icon reappears in
    the menu bar (extension woke it) → second Space shows the real PDF.
 4. Log check if anything fails:
-   `log show --predicate 'subsystem BEGINSWITH "com.drivepeak"' --last 5m --info --style compact`
+   `log show --predicate 'subsystem BEGINSWITH "com.spyglass"' --last 5m --info --style compact`
 
 - [ ] **Step 3: Update README**
 

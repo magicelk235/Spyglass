@@ -2,7 +2,7 @@ import SwiftUI
 import ServiceManagement
 
 @main
-struct DrivePeakApp: App {
+struct SpyglassApp: App {
     @StateObject private var auth = GoogleAuth()
     // Held for the app's lifetime. The worker drains/fetches queued docIDs;
     // the scanner discovers stub files on disk and enqueues them. Together
@@ -20,7 +20,7 @@ struct DrivePeakApp: App {
     }
 
     var body: some Scene {
-        MenuBarExtra("DrivePeak", systemImage: "mountain.2.fill") {
+        MenuBarExtra("Spyglass", systemImage: "mountain.2.fill") {
             ContentView()
                 .environmentObject(auth)
                 .onAppear { auth.restore() }

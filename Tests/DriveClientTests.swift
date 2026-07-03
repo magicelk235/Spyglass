@@ -1,5 +1,5 @@
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 /// URLProtocol stub: maps a URL substring → (status, body). Records requests.
 /// firstCallStatus: if set, returned on the FIRST match; subsequent matches use `status`.

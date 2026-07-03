@@ -1,6 +1,6 @@
-name: DrivePeak
+name: Spyglass
 options:
-  bundleIdPrefix: com.drivepeak
+  bundleIdPrefix: com.spyglass
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
@@ -20,16 +20,16 @@ settings:
 
 targets:
   # Shared, unit-testable logic used by both the app and the extension.
-  DrivePeakKit:
+  SpyglassKit:
     type: library.static
     platform: macOS
-    sources: [DrivePeakKit/Sources]
+    sources: [SpyglassKit/Sources]
     settings:
       base:
         DEFINES_MODULE: YES
 
   # Host application (thin: status UI + future sign-in).
-  DrivePeak:
+  Spyglass:
     type: application
     platform: macOS
     sources:
@@ -40,18 +40,18 @@ targets:
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.spyglass.app
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: App/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: App/App.entitlements
     dependencies:
-      - target: DrivePeakKit
-      - target: DrivePeakPreview
+      - target: SpyglassKit
+      - target: SpyglassPreview
         embed: true
 
   # Quick Look Preview Extension (.appex embedded in the app).
-  DrivePeakPreview:
+  SpyglassPreview:
     type: app-extension
     platform: macOS
     sources:
@@ -60,15 +60,15 @@ targets:
         buildPhase: resources
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.drivepeak.app.preview
+        PRODUCT_BUNDLE_IDENTIFIER: com.spyglass.app.preview
         INFOPLIST_FILE: Preview/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Preview/Preview.entitlements
     dependencies:
-      - target: DrivePeakKit
+      - target: SpyglassKit
 
-  # Unit tests for the pure logic in DrivePeakKit.
-  DrivePeakKitTests:
+  # Unit tests for the pure logic in SpyglassKit.
+  SpyglassKitTests:
     type: bundle.unit-test
     platform: macOS
     sources: [Tests]
@@ -80,20 +80,20 @@ targets:
         CODE_SIGN_IDENTITY: "-"
         DEVELOPMENT_TEAM: ""
     dependencies:
-      - target: DrivePeakKit
+      - target: SpyglassKit
 
 schemes:
-  DrivePeak:
+  Spyglass:
     build:
       targets:
-        DrivePeak: all
+        Spyglass: all
     run:
       config: Debug
-  DrivePeakKit:
+  SpyglassKit:
     build:
       targets:
-        DrivePeakKit: all
-        DrivePeakKitTests: [test]
+        SpyglassKit: all
+        SpyglassKitTests: [test]
     test:
       targets:
-        - DrivePeakKitTests
+        - SpyglassKitTests

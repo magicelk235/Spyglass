@@ -8,7 +8,7 @@ import Foundation
 /// showing the free Tier 0 card. The flag lives in the SAME shared suite the
 /// fetch-request channel uses, so both processes see it.
 public struct LicenseStore {
-    // Gumroad product for DrivePeak Tier 1.
+    // Gumroad product for Spyglass Tier 1.
     public static let productID = "YMTEmgQNPRDS27c2B_bflw=="
 
     private static let proKey = "isPro"
@@ -16,7 +16,7 @@ public struct LicenseStore {
 
     private let defaults: UserDefaults?
 
-    public init(groupID: String = "group.com.drivepeak.shared") {
+    public init(groupID: String = "group.com.spyglass.shared") {
         defaults = UserDefaults(suiteName: groupID)
     }
 

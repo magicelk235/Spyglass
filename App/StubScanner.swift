@@ -1,8 +1,8 @@
 import Foundation
 import OSLog
-import DrivePeakKit
+import SpyglassKit
 
-private let log = Logger(subsystem: "com.drivepeak.app", category: "scanner")
+private let log = Logger(subsystem: "com.spyglass.app", category: "scanner")
 
 /// Discovers Google Workspace stub files on disk and enqueues their docIDs so
 /// the FetchWorker pre-fetches PDF previews into the shared cache.
@@ -28,7 +28,7 @@ final class StubScanner: NSObject {
         startSpotlight()
         // A fresh sign-in makes previously-undownloadable stubs fetchable.
         NotificationCenter.default.addObserver(
-            self, selector: #selector(reSweep), name: .drivePeakDidSignIn, object: nil)
+            self, selector: #selector(reSweep), name: .spyglassDidSignIn, object: nil)
     }
 
     @objc private func reSweep() { directSweep() }

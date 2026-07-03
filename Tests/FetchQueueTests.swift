@@ -1,5 +1,5 @@
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 final class FetchQueueTests: XCTestCase {
     private func tempDir() -> URL {

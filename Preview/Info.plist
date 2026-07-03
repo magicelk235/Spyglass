@@ -30,12 +30,12 @@
                  type declarations. Keep in sync with WorkspaceType.swift. -->
             <key>QLSupportedContentTypes</key>
             <array>
-                <string>com.drivepeak.doc</string>
-                <string>com.drivepeak.sheet</string>
-                <string>com.drivepeak.slides</string>
-                <string>com.drivepeak.drawing</string>
-                <string>com.drivepeak.form</string>
-                <string>com.drivepeak.site</string>
+                <string>com.spyglass.doc</string>
+                <string>com.spyglass.sheet</string>
+                <string>com.spyglass.slides</string>
+                <string>com.spyglass.drawing</string>
+                <string>com.spyglass.form</string>
+                <string>com.spyglass.site</string>
             </array>
         </dict>
     </dict>

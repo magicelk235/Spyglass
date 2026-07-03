@@ -1,5 +1,5 @@
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 /// In-memory backend so TokenStore's encode/decode is testable without the
 /// entitlement-gated system Keychain.

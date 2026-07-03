@@ -1,6 +1,6 @@
 import XCTest
 import SwiftUI
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 /// Renders the offline card to PNGs on disk so the visual result can be
 /// inspected without a GUI Quick Look. Not a pass/fail assertion beyond "it
@@ -9,7 +9,7 @@ final class CardSnapshotTests: XCTestCase {
 
     @MainActor
     func testRenderAllTypeCards() throws {
-        let outDir = URL(fileURLWithPath: "/tmp/drivepeak-cards")
+        let outDir = URL(fileURLWithPath: "/tmp/spyglass-cards")
         try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
         for type in WorkspaceType.allCases {

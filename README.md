@@ -1,16 +1,16 @@
-# DrivePeak
+# Spyglass
 
 Good Quick Look previews for Google Workspace stub files on macOS.
 
 When you sync Google Drive to your Mac, Docs / Sheets / Slides / Drawings /
 Forms / Sites don't download as real files — they land as tiny "stub" files
 (`.gdoc`, `.gsheet`, `.gslides`, `.gdraw`, `.gform`, `.gsite`) that hold only a
-document ID. Pressing Space on one gives you a useless blob of JSON. DrivePeak
+document ID. Pressing Space on one gives you a useless blob of JSON. Spyglass
 replaces that with a real preview.
 
 ## What it does
 
-DrivePeak is a Quick Look Preview Extension plus a small host app. It previews in
+Spyglass is a Quick Look Preview Extension plus a small host app. It previews in
 two tiers:
 
 - **Tier 0 — offline card (always works, no sign-in).** A branded card per type:
@@ -46,22 +46,22 @@ xcodegen generate
 
 # Build to a clean location (avoids xattr/codesign issues from iCloud/Desktop):
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak \
-  -configuration Release build -derivedDataPath /tmp/drivepeak-dd
+  xcodebuild -project Spyglass.xcodeproj -scheme Spyglass \
+  -configuration Release build -derivedDataPath /tmp/spyglass-dd
 
 # Install:
-rm -rf /Applications/DrivePeak.app
-xattr -cr /tmp/drivepeak-dd/Build/Products/Release/DrivePeak.app
-cp -R /tmp/drivepeak-dd/Build/Products/Release/DrivePeak.app /Applications/
-xattr -cr /Applications/DrivePeak.app
+rm -rf /Applications/Spyglass.app
+xattr -cr /tmp/spyglass-dd/Build/Products/Release/Spyglass.app
+cp -R /tmp/spyglass-dd/Build/Products/Release/Spyglass.app /Applications/
+xattr -cr /Applications/Spyglass.app
 
 # Register the extension with Quick Look and Launch Services:
-/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f /Applications/DrivePeak.app
+/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f /Applications/Spyglass.app
 ```
 
-Then **open DrivePeak.app once** so the system registers the embedded preview
+Then **open Spyglass.app once** so the system registers the embedded preview
 extension. After that, press **Space** on a `.gdoc` (or any of the six types) in
-Finder — you should see the DrivePeak card.
+Finder — you should see the Spyglass card.
 
 Not working? Open the app once more to re-register, or run
 `qlmanage -r && qlmanage -r cache` to reset Quick Look.
@@ -73,8 +73,8 @@ and runs without any credentials or signing:
 
 ```sh
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit \
-  -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd
+  xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit \
+  -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd
 ```
 
 ## Enabling Tier 1 (Google-authenticated previews)
@@ -104,7 +104,7 @@ Tier 1 is optional. It needs two things Tier 0 doesn't.
    </plist>
    ```
 
-   No client secret is stored — DrivePeak uses the PKCE flow, which doesn't need
+   No client secret is stored — Spyglass uses the PKCE flow, which doesn't need
    one at runtime.
 
 ### 2. Signing with a free personal team
@@ -138,7 +138,7 @@ unchanged). The app registers itself as a login item so previews stay warm.
 
 - `WorkspaceType` is the single source of truth: one enum drives file extensions,
   the custom UTIs, Google URL paths, export capability, icons, and brand colors.
-- The app declares custom UTIs (`com.drivepeak.*`) via `UTExportedTypeDeclarations`
+- The app declares custom UTIs (`com.spyglass.*`) via `UTExportedTypeDeclarations`
   so macOS routes these otherwise-anonymous stub files to the extension.
 - The extension is a modern **view-based** `QLPreviewingController`
   (`preparePreviewOfFile(at:)`), sandboxed — required for a preview extension
@@ -165,8 +165,8 @@ unchanged). The app registers itself as a login item so previews stay warm.
 ```
 App/                 Host app (status UI, Google sign-in)
 Preview/             Quick Look preview extension
-DrivePeakKit/        Shared, unit-tested logic (model, parsing, auth, Drive, cache)
-Tests/               Unit tests for DrivePeakKit
+SpyglassKit/        Shared, unit-tested logic (model, parsing, auth, Drive, cache)
+Tests/               Unit tests for SpyglassKit
 docs/                Plan and design/spec documents
 project.yml          XcodeGen project spec (source of the .xcodeproj)
 ```

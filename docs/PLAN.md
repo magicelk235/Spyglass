@@ -1,10 +1,10 @@
-# DrivePeak — Good Quick Look Previews for Google Workspace Files
+# Spyglass — Good Quick Look Previews for Google Workspace Files
 
 A macOS app that gives real, useful Quick Look previews for Google Workspace
 stub files: `.gdoc`, `.gsheet`, `.gslides`, `.gdraw`, `.gform`, `.gsite`.
 
 Out of the box, hitting Space on one of these files in Finder shows nothing
-useful — they are 179-byte JSON stubs. DrivePeak fixes that.
+useful — they are 179-byte JSON stubs. Spyglass fixes that.
 
 ---
 
@@ -78,15 +78,15 @@ Keychain access group; the extension only reads it.
 Three targets in one Xcode project, three clean layers:
 
 ```
-DrivePeak.app            (host app — thin)
+Spyglass.app            (host app — thin)
  ├─ Onboarding / status UI (is the extension enabled? signed in?)
  ├─ Google sign-in (ASWebAuthenticationSession → OAuth)
  └─ Writes token to shared Keychain
 
-DrivePeakPreview.appex   (Quick Look Preview Extension)
+SpyglassPreview.appex   (Quick Look Preview Extension)
  └─ QLPreviewingController → SwiftUI preview view (Tier 0 / Tier 1)
 
-DrivePeakKit  (shared framework — the real logic, unit-testable)
+SpyglassKit  (shared framework — the real logic, unit-testable)
  ├─ StubParser        parse stub JSON → Stub model
  ├─ WorkspaceType     the 6 types: ext, UTI, icon, color, URL + API mime
  ├─ GoogleURLBuilder  doc_id + type → canonical open URL
@@ -129,7 +129,7 @@ URL building, API calls) derives from this. No duplicated type lists.
 Because the OS sees only a dynamic UTI, the host app's `Info.plist` must both
 **declare** each extension as an exported/imported type AND the extension must
 advertise it handles them via `QLSupportedContentTypes`. We declare custom UTIs
-(e.g. `com.drivepeak.gdoc`) conforming to `public.json` + `public.data`, tied to
+(e.g. `com.spyglass.gdoc`) conforming to `public.json` + `public.data`, tied to
 the filename extension. This is what makes Quick Look hand the file to us.
 
 This is the single most fragile part; it gets verified first (§9 step 1).
@@ -140,7 +140,7 @@ Xcode 26.6 is installed but not the active developer dir. We build headless:
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak build
+  xcodebuild -project Spyglass.xcodeproj -scheme Spyglass build
 ```
 
 - No `sudo xcode-select` required for building (env var is enough).
@@ -151,7 +151,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 
 ## 8. Testing strategy
 
-- **Unit tests** (`DrivePeakKit`, runnable via `xcodebuild test`): StubParser
+- **Unit tests** (`SpyglassKit`, runnable via `xcodebuild test`): StubParser
   against the real JSON shape (incl. missing fields, bad JSON), GoogleURLBuilder
   for all 6 types, WorkspaceType mapping. These are the logic that matters.
 - **Manual QL smoke test**: `qlmanage -p <file>.gdoc` and Finder Space on a real
@@ -164,7 +164,7 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
 1. **Prove the pipeline** — minimal app + appex that declares the UTIs and shows
    a hardcoded "Hello" on Space over a `.gdoc`. If this doesn't light up,
    nothing else matters. Verify with `pluginkit`/`qlmanage`.
-2. **DrivePeakKit core** — `WorkspaceType`, `StubParser`, `GoogleURLBuilder` +
+2. **SpyglassKit core** — `WorkspaceType`, `StubParser`, `GoogleURLBuilder` +
    unit tests. Pure logic, no UI.
 3. **Tier 0 card** — real SwiftUI preview from parsed stub. This is the shippable
    MVP: good offline previews for all 6 types.
@@ -196,5 +196,5 @@ optional upgrade and can land later without touching 1–3.
   configured**.
 - Signing in (optional) upgrades Docs/Sheets/Slides/Drawings to a real page-1
   image.
-- `DrivePeakKit` unit tests pass via `xcodebuild test`.
+- `SpyglassKit` unit tests pass via `xcodebuild test`.
 - One-command build documented in README; committed to git in clean steps.

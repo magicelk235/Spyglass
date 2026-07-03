@@ -1,11 +1,11 @@
 import Foundation
 import Network
 import AppKit
-import DrivePeakKit
+import SpyglassKit
 
 public extension Notification.Name {
     /// Posted by GoogleAuth after a successful sign-in.
-    static let drivePeakDidSignIn = Notification.Name("drivePeakDidSignIn")
+    static let spyglassDidSignIn = Notification.Name("spyglassDidSignIn")
 }
 
 // MARK: - Errors
@@ -173,7 +173,7 @@ public final class GoogleAuth: ObservableObject {
         // Tell the scanner to sweep now: pre-launch stubs couldn't be fetched
         // without a token, so a fresh sign-in should enqueue them immediately
         // rather than waiting for the next app launch.
-        NotificationCenter.default.post(name: .drivePeakDidSignIn, object: nil)
+        NotificationCenter.default.post(name: .spyglassDidSignIn, object: nil)
     }
 
     // MARK: - Listener

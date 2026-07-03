@@ -11,7 +11,7 @@ public struct PreviewCache {
         self.previewsDir = directory.appendingPathComponent("previews", isDirectory: true)
     }
 
-    public static func groupContainerURL(groupID: String = "group.com.drivepeak.shared") -> URL? {
+    public static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
     }
 

@@ -3,9 +3,9 @@ import QuickLookUI
 import SwiftUI
 import PDFKit
 import OSLog
-import DrivePeakKit
+import SpyglassKit
 
-private let log = Logger(subsystem: "com.drivepeak.app.preview", category: "preview")
+private let log = Logger(subsystem: "com.spyglass.app.preview", category: "preview")
 
 /// Quick Look Preview Extension entry point.
 ///
@@ -61,19 +61,29 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         guard let doc = PDFDocument(data: data) else { return false }
         let pdfView = PDFView(frame: view.bounds)
         pdfView.autoresizingMask = [.width, .height]
+        pdfView.displayMode = .singlePageContinuous
         pdfView.autoScales = true
         pdfView.document = doc
         view.subviews.forEach { $0.removeFromSuperview() }
         view.addSubview(pdfView)
         // A PDFView assigned its document before layout lands scrolled to the
-        // last page. Force it back to page 1 after the scroll view has sized.
-        if let first = doc.page(at: 0) {
-            // PDF coords have origin at bottom-left, so the top of the page is
-            // (0, height). Scroll there so page 1 shows from the top.
-            let top = CGPoint(x: 0, y: first.bounds(for: .mediaBox).height)
-            DispatchQueue.main.async { pdfView.go(to: PDFDestination(page: first, at: top)) }
-        }
+        // last page. Snap to page 1 in viewDidLayout (below), which fires after
+        // Quick Look finishes sizing the panel — a single async runs too early.
+        self.pdfView = pdfView
+        self.needsSnapToTop = true
         return true
+    }
+
+    private weak var pdfView: PDFView?
+    private var needsSnapToTop = false
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        guard needsSnapToTop, let pdfView, let first = pdfView.document?.page(at: 0),
+              pdfView.bounds.height > 1 else { return }
+        needsSnapToTop = false   // one-shot: leave the user free to scroll after
+        let top = CGPoint(x: 0, y: first.bounds(for: .mediaBox).height)
+        pdfView.go(to: PDFDestination(page: first, at: top))
     }
 
     /// Installs a SwiftUI hosting view as the view's sole subview.

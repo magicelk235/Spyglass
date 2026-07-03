@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build a premium DrivePeak.dmg from a Release build, then (optionally) notarize.
+# Build a premium Spyglass.dmg from a Release build, then (optionally) notarize.
 #
 #   dmg/build-dmg.sh                 # build + package (unsigned dmg, Gatekeeper will warn)
 #   NOTARIZE=1 dmg/build-dmg.sh      # also notarize + staple (needs paid Apple ID)
@@ -10,14 +10,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."   # repo root
 
-APP="DrivePeak.app"
-DD=/tmp/drivepeak-dd
+APP="Spyglass.app"
+DD=/tmp/spyglass-dd
 SRC="$DD/Build/Products/Release"
-OUT="dmg/DrivePeak.dmg"
+OUT="dmg/Spyglass.dmg"
 
 echo "==> Building Release"
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak \
+  xcodebuild -project Spyglass.xcodeproj -scheme Spyglass \
   -configuration Release build -derivedDataPath "$DD" >/dev/null
 xattr -cr "$SRC/$APP"
 
@@ -28,7 +28,7 @@ STAGE=$(mktemp -d)
 cp -R "$SRC/$APP" "$STAGE/"
 
 create-dmg \
-  --volname "DrivePeak" \
+  --volname "Spyglass" \
   --background "dmg/assets/dmg-bg.png" \
   --window-pos 200 120 \
   --window-size 660 420 \

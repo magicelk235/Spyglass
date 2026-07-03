@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>DrivePeak</string>
+	<string>Spyglass</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIconName</key>
@@ -37,7 +37,7 @@
 			<key>UTTypeDescription</key>
 			<string>Google Docs file</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.drivepeak.doc</string>
+			<string>com.spyglass.doc</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -55,7 +55,7 @@
 			<key>UTTypeDescription</key>
 			<string>Google Sheets file</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.drivepeak.sheet</string>
+			<string>com.spyglass.sheet</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -73,7 +73,7 @@
 			<key>UTTypeDescription</key>
 			<string>Google Slides file</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.drivepeak.slides</string>
+			<string>com.spyglass.slides</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -91,7 +91,7 @@
 			<key>UTTypeDescription</key>
 			<string>Google Drawings file</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.drivepeak.drawing</string>
+			<string>com.spyglass.drawing</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -109,7 +109,7 @@
 			<key>UTTypeDescription</key>
 			<string>Google Forms file</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.drivepeak.form</string>
+			<string>com.spyglass.form</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -127,7 +127,7 @@
 			<key>UTTypeDescription</key>
 			<string>Google Sites file</string>
 			<key>UTTypeIdentifier</key>
-			<string>com.drivepeak.site</string>
+			<string>com.spyglass.site</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>

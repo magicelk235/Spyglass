@@ -1,7 +1,7 @@
 import Foundation
 import AppKit
 
-/// Detects whether DrivePeak can actually read the Google Drive mounts, and
+/// Detects whether Spyglass can actually read the Google Drive mounts, and
 /// opens the Full Disk Access pane if not.
 ///
 /// The scanner sweeps `~/Library/CloudStorage/GoogleDrive-*` to discover stubs.

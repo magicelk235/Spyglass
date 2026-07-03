@@ -1,4 +1,4 @@
-# DrivePeak — Extension→App Fetch Handoff
+# Spyglass — Extension→App Fetch Handoff
 
 **Date:** 2026-07-01
 **Status:** Implemented (with pivot — see Addendum)
@@ -19,9 +19,9 @@ network. The app does all fetching; the extension only reads the shared cache.
 
 ## Constraints (established this session)
 
-- App Group `group.com.drivepeak.shared` is provisioned and shared between app
+- App Group `group.com.spyglass.shared` is provisioned and shared between app
   and extension (verified in signed entitlements).
-- The data-protection keychain group `<prefix>.com.drivepeak.shared` is shared
+- The data-protection keychain group `<prefix>.com.spyglass.shared` is shared
   and readable from both processes (token sharing now works after adding
   `kSecUseDataProtectionKeychain`).
 - `PreviewCache` already caches exported PDFs in the App Group container, keyed
@@ -73,7 +73,7 @@ Rejected alternatives:
 
 ### 2. Request markers (extension → app)
 
-A new small type in `DrivePeakKit`, `FetchQueue`, owns a `requests/`
+A new small type in `SpyglassKit`, `FetchQueue`, owns a `requests/`
 subdirectory of the App Group container:
 
 - `FetchQueue.enqueue(docID:)` — writes `requests/<sha256(docID)>.req`
@@ -115,7 +115,7 @@ A new `FetchWorker` (app target), started when the app launches:
    b. Wake the app headless: `NSWorkspace.openApplication(at: appURL,
       configuration:)` with `activates = false` and `addsToRecentItems = false`.
       Locate the app bundle from the extension's own bundle path
-      (`.../DrivePeak.app/Contents/PlugIns/DrivePeakPreview.appex` → three
+      (`.../Spyglass.app/Contents/PlugIns/SpyglassPreview.appex` → three
       parents up).
    c. Poll the cache for up to ~1.5 s (e.g. 6 × 250 ms). If the app fetches
       fast, the **first** Space already upgrades to a real preview.
@@ -125,7 +125,7 @@ A new `FetchWorker` (app target), started when the app launches:
 
 All extension DNS/network code (ephemeral session, DriveClient construction,
 metadata/export calls, the DNS diagnostic probe) is **removed** from the
-extension. `DriveClient` stays in `DrivePeakKit`, now used only by the app.
+extension. `DriveClient` stays in `SpyglassKit`, now used only by the app.
 
 ## Data flow
 
@@ -157,7 +157,7 @@ App (menu bar, woken or already running)
 
 ## Testing
 
-Unit-testable in `DrivePeakKit` (no signing, no network), matching the existing
+Unit-testable in `SpyglassKit` (no signing, no network), matching the existing
 test style:
 
 - `FetchQueue`: enqueue writes a marker; `pending()` returns the docID;
@@ -175,9 +175,9 @@ Manual acceptance (documented in README):
 ## Files touched
 
 - `App/Info.plist` — add `LSUIElement`.
-- `App/DrivePeakApp.swift` — `Window` → `MenuBarExtra`; start `FetchWorker`.
+- `App/SpyglassApp.swift` — `Window` → `MenuBarExtra`; start `FetchWorker`.
 - `App/FetchWorker.swift` — **new**, app-side fetch loop + dir watcher.
-- `DrivePeakKit/Sources/FetchQueue.swift` — **new**, marker enqueue/pending/complete.
+- `SpyglassKit/Sources/FetchQueue.swift` — **new**, marker enqueue/pending/complete.
 - `Preview/PreviewViewController.swift` — strip all network code; cache-read +
   enqueue + wake + poll.
 - `Tests/FetchQueueTests.swift` — **new**.

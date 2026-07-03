@@ -1,5 +1,5 @@
 import SwiftUI
-import DrivePeakKit
+import SpyglassKit
 
 /// Single centered column, System-Settings-style grouped Form. Follows the
 /// macOS HIG: hero content centered and near the top, controls grouped with
@@ -39,7 +39,7 @@ struct ContentView: View {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 76, height: 76)
-            Text("DrivePeak").font(.title).bold()
+            Text("Spyglass").font(.title).bold()
             Text("Real Quick Look previews for Google Workspace files")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -82,7 +82,7 @@ struct ContentView: View {
                     Text(err).font(.callout).foregroundStyle(.red)
                 }
                 Link("Buy a key — $9, one-time",
-                     destination: URL(string: "https://gumroad.com/l/drivepeak")!)
+                     destination: URL(string: "https://gumroad.com/l/spyglass")!)
             } header: {
                 Text("Unlock Tier 1")
             } footer: {
@@ -103,7 +103,7 @@ struct ContentView: View {
         } header: {
             Text("Action needed")
         } footer: {
-            Text("DrivePeak needs Full Disk Access to read your Google Drive and render previews. Turn it on for DrivePeak, then relaunch.")
+            Text("Spyglass needs Full Disk Access to read your Google Drive and render previews. Turn it on for Spyglass, then relaunch.")
         }
     }
 
@@ -134,7 +134,7 @@ struct ContentView: View {
         } header: {
             Text("Account")
         } footer: {
-            Text("Sign-in lets DrivePeak fetch and render your documents.")
+            Text("Sign-in lets Spyglass fetch and render your documents.")
         }
     }
 

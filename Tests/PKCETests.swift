@@ -1,6 +1,6 @@
 import XCTest
 import CryptoKit
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 final class PKCETests: XCTestCase {
     func testChallengeIsBase64URLSHA256OfVerifier() {

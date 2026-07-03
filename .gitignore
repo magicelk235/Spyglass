@@ -6,7 +6,7 @@ xcuserdata/
 Secrets.xcconfig
 
 # xcodegen-generated project (regenerate with: xcodegen generate)
-DrivePeak.xcodeproj/
+Spyglass.xcodeproj/
 
 # Google OAuth — never commit
 client_secret_*.json
@@ -15,5 +15,11 @@ GoogleOAuth.plist
 .superpowers/
 
 # DMG build artifacts (regenerate with dmg/build-dmg.sh)
-dmg/DrivePeak.dmg
+dmg/Spyglass.dmg
 dmg/assets/dmg-preview.png
+
+# Firecrawl scrape cache
+.firecrawl/
+
+# Old-name DMG artifact
+dmg/DrivePeak.dmg

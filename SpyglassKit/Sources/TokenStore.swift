@@ -35,11 +35,11 @@ public struct TokenStore {
 ///
 /// We intentionally omit `kSecAttrAccessGroup` from the query. When omitted,
 /// Keychain Services defaults to the process's first entitled access group —
-/// which is `$(AppIdentifierPrefix)com.drivepeak.shared` from the entitlements.
-/// That resolves at runtime to `<TeamID>.com.drivepeak.shared`, the exact
+/// which is `$(AppIdentifierPrefix)com.spyglass.shared` from the entitlements.
+/// That resolves at runtime to `<TeamID>.com.spyglass.shared`, the exact
 /// team-prefixed string the entitlement actually grants.
 ///
-/// Passing the bare, unqualified string "com.drivepeak.shared" instead would
+/// Passing the bare, unqualified string "com.spyglass.shared" instead would
 /// never match an entitled group (they all carry the team prefix), causing
 /// SecItemAdd to return errSecMissingEntitlement (-34018) and silently breaking
 /// Tier 1 on any signed build.

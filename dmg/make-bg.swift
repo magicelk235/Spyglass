@@ -68,7 +68,7 @@ func render(scale: CGFloat, to path: String) {
         NSGraphicsContext.restoreGraphicsState()
     }
     // Wordmark top-left. y measured from bottom (CG origin).
-    drawText("DrivePeak", x: 40, y: H - 62, size: 30, weight: .semibold, alpha: 0.96, tracking: 0.5)
+    drawText("Spyglass", x: 40, y: H - 62, size: 30, weight: .semibold, alpha: 0.96, tracking: 0.5)
     drawText("Real Quick Look previews for Google Workspace files",
              x: 41, y: H - 88, size: 12.5, weight: .regular, alpha: 0.5)
     // Caption under the arrow.

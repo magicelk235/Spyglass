@@ -15,7 +15,7 @@ public struct FetchQueue {
         self.requestsDirectory = directory.appendingPathComponent("requests", isDirectory: true)
     }
 
-    public static func groupContainerURL(groupID: String = "group.com.drivepeak.shared") -> URL? {
+    public static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
     }
 
@@ -49,7 +49,7 @@ public struct FetchQueue {
     /// them during drain and processes them like marker files.
     /// ponytail: read-modify-write is not atomic across processes; previews
     /// arrive one at a time, so a lost concurrent append is acceptable.
-    public static func postRequest(docID: String, groupID: String = "group.com.drivepeak.shared") {
+    public static func postRequest(docID: String, groupID: String = "group.com.spyglass.shared") {
         guard let d = UserDefaults(suiteName: groupID) else { return }
         var list = d.stringArray(forKey: defaultsKey) ?? []
         guard !list.contains(docID) else { return }
@@ -58,7 +58,7 @@ public struct FetchQueue {
     }
 
     /// Takes (returns and clears) all requests posted via postRequest.
-    public static func takeRequests(groupID: String = "group.com.drivepeak.shared") -> [String] {
+    public static func takeRequests(groupID: String = "group.com.spyglass.shared") -> [String] {
         guard let d = UserDefaults(suiteName: groupID) else { return [] }
         let list = d.stringArray(forKey: defaultsKey) ?? []
         if !list.isEmpty { d.removeObject(forKey: defaultsKey) }

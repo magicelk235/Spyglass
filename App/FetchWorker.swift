@@ -1,8 +1,8 @@
 import Foundation
 import OSLog
-import DrivePeakKit
+import SpyglassKit
 
-private let log = Logger(subsystem: "com.drivepeak.app", category: "fetchworker")
+private let log = Logger(subsystem: "com.spyglass.app", category: "fetchworker")
 
 /// Drains the FetchQueue: for each requested docID, fetches metadata + PDF
 /// export from Drive (the app CAN resolve DNS; the extension can't) and writes
@@ -13,12 +13,12 @@ final class FetchWorker: NSObject {
     private let cache: PreviewCache?
     private var watcher: DispatchSourceFileSystemObject?
     private var draining = false
-    private let workQueue = DispatchQueue(label: "com.drivepeak.fetchworker")
+    private let workQueue = DispatchQueue(label: "com.spyglass.fetchworker")
     // Shared defaults double as the request channel: the extension's sandbox
     // can't write files into the group container, but cfprefsd writes work.
     // KVO on a shared suite is delivered across processes, so a running app
     // picks up new requests without polling.
-    private let sharedDefaults = UserDefaults(suiteName: "group.com.drivepeak.shared")
+    private let sharedDefaults = UserDefaults(suiteName: "group.com.spyglass.shared")
 
     override init() {
         let container = FetchQueue.groupContainerURL()

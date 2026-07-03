@@ -13,14 +13,14 @@
 - macOS deployment target: **14.0** (copied from `project.yml`).
 - Swift version: **5.0**.
 - No new third-party dependencies — Foundation / Security / PDFKit / Network only.
-- Shared identifiers (verbatim): Keychain group `$(DEVELOPMENT_TEAM).com.drivepeak.shared`; App Group `group.com.drivepeak.shared`.
+- Shared identifiers (verbatim): Keychain group `$(DEVELOPMENT_TEAM).com.spyglass.shared`; App Group `group.com.spyglass.shared`.
 - OAuth scope (verbatim): `https://www.googleapis.com/auth/drive.readonly` and `https://www.googleapis.com/auth/userinfo.email`.
 - `client_secret` is **never** embedded — PKCE desktop flow only.
 - Signing stays ad-hoc (`CODE_SIGN_IDENTITY: "-"`) with empty `DEVELOPMENT_TEAM` until the Apple account lands; all code must compile and all unit tests must pass under ad-hoc today.
 - Commit style: no Co-Authored-By / attribution footer.
-- All new shared logic lives in `DrivePeakKit/Sources`; unit tests in `Tests/`.
+- All new shared logic lives in `SpyglassKit/Sources`; unit tests in `Tests/`.
 - Headless build/test command (verbatim):
-  `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd`
+  `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd`
 - Regenerate project after any `project.yml` / plist / entitlements change:
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate`
 
@@ -28,13 +28,13 @@
 
 ## File Structure
 
-**Create (DrivePeakKit — shared, unit-tested):**
-- `DrivePeakKit/Sources/Tokens.swift` — the `Tokens` value type.
-- `DrivePeakKit/Sources/PKCE.swift` — PKCE verifier/challenge + auth-URL assembly (pure, testable).
-- `DrivePeakKit/Sources/TokenStore.swift` — Keychain read/write with an injectable backend.
-- `DrivePeakKit/Sources/DriveClient.swift` — Drive export/metadata + 401-refresh, injectable `URLSession`.
-- `DrivePeakKit/Sources/PreviewCache.swift` — App Group PDF cache keyed by docID + modifiedTime.
-- `DrivePeakKit/Sources/OAuthConfig.swift` — loads `client_id` from `GoogleOAuth.plist`.
+**Create (SpyglassKit — shared, unit-tested):**
+- `SpyglassKit/Sources/Tokens.swift` — the `Tokens` value type.
+- `SpyglassKit/Sources/PKCE.swift` — PKCE verifier/challenge + auth-URL assembly (pure, testable).
+- `SpyglassKit/Sources/TokenStore.swift` — Keychain read/write with an injectable backend.
+- `SpyglassKit/Sources/DriveClient.swift` — Drive export/metadata + 401-refresh, injectable `URLSession`.
+- `SpyglassKit/Sources/PreviewCache.swift` — App Group PDF cache keyed by docID + modifiedTime.
+- `SpyglassKit/Sources/OAuthConfig.swift` — loads `client_id` from `GoogleOAuth.plist`.
 
 **Create (App — interactive, not unit-tested):**
 - `App/GoogleAuth.swift` — loopback listener + code exchange (glues PKCE + DriveClient token endpoint + TokenStore).
@@ -59,7 +59,7 @@
 ## Task 1: `Tokens` value type
 
 **Files:**
-- Create: `DrivePeakKit/Sources/Tokens.swift`
+- Create: `SpyglassKit/Sources/Tokens.swift`
 - Test: covered indirectly (Task 3/4); no standalone test — it's a plain struct.
 
 **Interfaces:**
@@ -92,13 +92,13 @@ public struct Tokens: Codable, Equatable, Sendable {
 
 - [ ] **Step 2: Build to verify it compiles**
 
-Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' build -derivedDataPath /tmp/drivepeak-dd`
+Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' build -derivedDataPath /tmp/spyglass-dd`
 Expected: BUILD SUCCEEDED (regenerate project first if the file isn't picked up: `xcodegen generate`).
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add DrivePeakKit/Sources/Tokens.swift
+git add SpyglassKit/Sources/Tokens.swift
 git commit -m "Add Tokens value type for OAuth persistence"
 ```
 
@@ -107,7 +107,7 @@ git commit -m "Add Tokens value type for OAuth persistence"
 ## Task 2: PKCE + auth-URL assembly
 
 **Files:**
-- Create: `DrivePeakKit/Sources/PKCE.swift`
+- Create: `SpyglassKit/Sources/PKCE.swift`
 - Test: `Tests/PKCETests.swift`
 
 **Interfaces:**
@@ -123,7 +123,7 @@ git commit -m "Add Tokens value type for OAuth persistence"
 ```swift
 import XCTest
 import CryptoKit
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 final class PKCETests: XCTestCase {
     func testChallengeIsBase64URLSHA256OfVerifier() {
@@ -160,7 +160,7 @@ final class PKCETests: XCTestCase {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd`
+Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd`
 Expected: FAIL — `PKCE` / `makeAuthURL` not defined (compile error).
 
 - [ ] **Step 3: Write the implementation**
@@ -227,7 +227,7 @@ Expected: PASS (PKCETests 2 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add DrivePeakKit/Sources/PKCE.swift Tests/PKCETests.swift
+git add SpyglassKit/Sources/PKCE.swift Tests/PKCETests.swift
 git commit -m "Add PKCE generation and Google auth URL assembly with tests"
 ```
 
@@ -236,14 +236,14 @@ git commit -m "Add PKCE generation and Google auth URL assembly with tests"
 ## Task 3: `TokenStore` (Keychain, injectable backend)
 
 **Files:**
-- Create: `DrivePeakKit/Sources/TokenStore.swift`
+- Create: `SpyglassKit/Sources/TokenStore.swift`
 - Test: `Tests/TokenStoreTests.swift`
 
 **Interfaces:**
 - Consumes: `Tokens` (Task 1).
 - Produces:
   - `protocol KeychainBackend { func set(_ data: Data, account: String) throws; func get(account: String) -> Data?; func delete(account: String) throws }`
-  - `struct TokenStore { init(backend: KeychainBackend = SystemKeychain(group: "com.drivepeak.shared")); func save(_ tokens: Tokens) throws; func load() -> Tokens?; func clear() throws }`
+  - `struct TokenStore { init(backend: KeychainBackend = SystemKeychain(group: "com.spyglass.shared")); func save(_ tokens: Tokens) throws; func load() -> Tokens?; func clear() throws }`
   - `final class SystemKeychain: KeychainBackend` — real Keychain via `kSecClassGenericPassword` + `kSecAttrAccessGroup`.
   - The account key is the constant `"google-oauth"`.
 
@@ -253,7 +253,7 @@ Rationale for the backend protocol: the real Keychain needs entitlements we can'
 
 ```swift
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 /// In-memory backend so TokenStore's encode/decode is testable without the
 /// entitlement-gated system Keychain.
@@ -309,7 +309,7 @@ public struct TokenStore {
     private static let account = "google-oauth"
     private let backend: KeychainBackend
 
-    public init(backend: KeychainBackend = SystemKeychain(group: "com.drivepeak.shared")) {
+    public init(backend: KeychainBackend = SystemKeychain(group: "com.spyglass.shared")) {
         self.backend = backend
     }
 
@@ -328,7 +328,7 @@ public struct TokenStore {
 }
 
 /// Real Keychain backed by a shared access group. Requires the
-/// keychain-access-groups entitlement ($(DEVELOPMENT_TEAM).com.drivepeak.shared),
+/// keychain-access-groups entitlement ($(DEVELOPMENT_TEAM).com.spyglass.shared),
 /// which needs a paid Apple Developer Team ID to sign — exercised manually once
 /// the account lands. ponytail: thin shim, no unit test; logic lives in TokenStore.
 public final class SystemKeychain: KeychainBackend {
@@ -376,7 +376,7 @@ Expected: PASS (TokenStoreTests 3 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add DrivePeakKit/Sources/TokenStore.swift Tests/TokenStoreTests.swift
+git add SpyglassKit/Sources/TokenStore.swift Tests/TokenStoreTests.swift
 git commit -m "Add TokenStore with injectable Keychain backend and tests"
 ```
 
@@ -385,7 +385,7 @@ git commit -m "Add TokenStore with injectable Keychain backend and tests"
 ## Task 4: `DriveClient` (export/metadata + 401 refresh)
 
 **Files:**
-- Create: `DrivePeakKit/Sources/DriveClient.swift`
+- Create: `SpyglassKit/Sources/DriveClient.swift`
 - Test: `Tests/DriveClientTests.swift`
 
 **Interfaces:**
@@ -402,7 +402,7 @@ git commit -m "Add TokenStore with injectable Keychain backend and tests"
 
 ```swift
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 /// URLProtocol stub: maps a URL substring → (status, body). Records requests.
 final class StubURLProtocol: URLProtocol {
@@ -583,7 +583,7 @@ Expected: PASS (DriveClientTests 3 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add DrivePeakKit/Sources/DriveClient.swift Tests/DriveClientTests.swift
+git add SpyglassKit/Sources/DriveClient.swift Tests/DriveClientTests.swift
 git commit -m "Add DriveClient with PDF export, metadata, and 401-refresh retry"
 ```
 
@@ -592,14 +592,14 @@ git commit -m "Add DriveClient with PDF export, metadata, and 401-refresh retry"
 ## Task 5: `PreviewCache` (App Group container)
 
 **Files:**
-- Create: `DrivePeakKit/Sources/PreviewCache.swift`
+- Create: `SpyglassKit/Sources/PreviewCache.swift`
 - Test: `Tests/PreviewCacheTests.swift`
 
 **Interfaces:**
 - Consumes: nothing.
 - Produces:
   - `struct PreviewCache { init(directory: URL) }` (inject a temp dir in tests; app/extension pass the App Group container)
-  - `static func groupContainerURL(groupID: String = "group.com.drivepeak.shared") -> URL?` (real container; nil if unavailable)
+  - `static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL?` (real container; nil if unavailable)
   - `func cachedPDF(docID: String, modifiedTime: String) -> Data?` (nil if missing or stale)
   - `func store(docID: String, modifiedTime: String, pdf: Data) throws`
   - Layout: `<dir>/previews/<docID>.pdf` + `<dir>/previews/<docID>.meta` (meta = modifiedTime string).
@@ -608,7 +608,7 @@ git commit -m "Add DriveClient with PDF export, metadata, and 401-refresh retry"
 
 ```swift
 import XCTest
-@testable import DrivePeakKit
+@testable import SpyglassKit
 
 final class PreviewCacheTests: XCTestCase {
     private func tempDir() -> URL {
@@ -657,7 +657,7 @@ public struct PreviewCache {
         self.previewsDir = directory.appendingPathComponent("previews", isDirectory: true)
     }
 
-    public static func groupContainerURL(groupID: String = "group.com.drivepeak.shared") -> URL? {
+    public static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL? {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
     }
 
@@ -688,7 +688,7 @@ Expected: PASS (PreviewCacheTests 3 tests).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add DrivePeakKit/Sources/PreviewCache.swift Tests/PreviewCacheTests.swift
+git add SpyglassKit/Sources/PreviewCache.swift Tests/PreviewCacheTests.swift
 git commit -m "Add PreviewCache keyed by docID and modifiedTime"
 ```
 
@@ -697,7 +697,7 @@ git commit -m "Add PreviewCache keyed by docID and modifiedTime"
 ## Task 6: `OAuthConfig` (client_id loader)
 
 **Files:**
-- Create: `DrivePeakKit/Sources/OAuthConfig.swift`
+- Create: `SpyglassKit/Sources/OAuthConfig.swift`
 - Create: `GoogleOAuth.plist` (gitignored)
 - Modify: `.gitignore`
 
@@ -746,7 +746,7 @@ public enum OAuthConfig {
 
 - [ ] **Step 4: Wire the plist into both bundles (project.yml) and regenerate**
 
-Under `DrivePeak` target and `DrivePeakPreview` target `sources`, add the resource so it's copied into each bundle. In `project.yml`, add to each target:
+Under `Spyglass` target and `SpyglassPreview` target `sources`, add the resource so it's copied into each bundle. In `project.yml`, add to each target:
 ```yaml
     sources:
       - <existing path>
@@ -759,13 +759,13 @@ Then: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generat
 
 - [ ] **Step 5: Build to verify**
 
-Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd`
+Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd`
 Expected: BUILD SUCCEEDED.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add .gitignore DrivePeakKit/Sources/OAuthConfig.swift project.yml
+git add .gitignore SpyglassKit/Sources/OAuthConfig.swift project.yml
 git commit -m "Add OAuthConfig client_id loader; bundle gitignored GoogleOAuth.plist"
 ```
 
@@ -795,11 +795,11 @@ Add inside the `<dict>`:
 ```xml
     <key>com.apple.security.application-groups</key>
     <array>
-        <string>group.com.drivepeak.shared</string>
+        <string>group.com.spyglass.shared</string>
     </array>
     <key>keychain-access-groups</key>
     <array>
-        <string>$(AppIdentifierPrefix)com.drivepeak.shared</string>
+        <string>$(AppIdentifierPrefix)com.spyglass.shared</string>
     </array>
 ```
 
@@ -822,9 +822,9 @@ configFiles:
 Run:
 ```
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd
 ```
-Expected: BUILD SUCCEEDED. (Ad-hoc signing ignores the empty team; the entitlements are declared but not enforced until signed with a real team. If ad-hoc signing rejects the keychain-access-groups entitlement, note it and proceed — the manual E2E is account-gated anyway; the unit-test scheme `DrivePeakKit` does not sign the app and will still pass.)
+Expected: BUILD SUCCEEDED. (Ad-hoc signing ignores the empty team; the entitlements are declared but not enforced until signed with a real team. If ad-hoc signing rejects the keychain-access-groups entitlement, note it and proceed — the manual E2E is account-gated anyway; the unit-test scheme `SpyglassKit` does not sign the app and will still pass.)
 
 - [ ] **Step 6: Commit**
 
@@ -856,7 +856,7 @@ No unit test (interactive network + browser). Its pure pieces (PKCE, URL, token 
 import Foundation
 import AppKit
 import Network
-import DrivePeakKit
+import SpyglassKit
 
 /// Interactive Google sign-in via loopback OAuth (PKCE desktop flow).
 /// Opens the system browser, runs a one-shot local listener to catch the
@@ -985,7 +985,7 @@ Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate
 
 - [ ] **Step 3: Build the app to verify it compiles**
 
-Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd`
+Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd`
 Expected: BUILD SUCCEEDED.
 
 - [ ] **Step 4: Commit**
@@ -1016,9 +1016,9 @@ import QuickLookUI
 import SwiftUI
 import PDFKit
 import OSLog
-import DrivePeakKit
+import SpyglassKit
 
-private let log = Logger(subsystem: "com.drivepeak.app.preview", category: "preview")
+private let log = Logger(subsystem: "com.spyglass.app.preview", category: "preview")
 
 final class PreviewViewController: NSViewController, QLPreviewingController {
 
@@ -1118,13 +1118,13 @@ private struct UnparseableView: View {
 Run:
 ```
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd
 ```
 Expected: BUILD SUCCEEDED.
 
 - [ ] **Step 3: Run the full unit-test suite (must stay green)**
 
-Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeakKit -destination 'platform=macOS' test -derivedDataPath /tmp/drivepeak-dd`
+Run: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme SpyglassKit -destination 'platform=macOS' test -derivedDataPath /tmp/spyglass-dd`
 Expected: all tests PASS (16 prior + PKCE 2 + TokenStore 3 + DriveClient 3 + PreviewCache 3).
 
 - [ ] **Step 4: Commit**
@@ -1140,24 +1140,24 @@ git commit -m "Extension: render Drive PDF export when authed, fall back to Tier
 
 **Files:**
 - Modify: `App/ContentView.swift`
-- Modify: `App/DrivePeakApp.swift` (inject `GoogleAuth`, call `restore()` on launch)
+- Modify: `App/SpyglassApp.swift` (inject `GoogleAuth`, call `restore()` on launch)
 
 **Interfaces:**
 - Consumes: `GoogleAuth` (Task 8), `TokenStore` (Task 3).
 
 - [ ] **Step 1: Inject GoogleAuth in the app entry point**
 
-In `App/DrivePeakApp.swift`, create the auth object and pass to `ContentView`:
+In `App/SpyglassApp.swift`, create the auth object and pass to `ContentView`:
 ```swift
 import SwiftUI
-import DrivePeakKit
+import SpyglassKit
 
 @main
-struct DrivePeakApp: App {
+struct SpyglassApp: App {
     @StateObject private var auth = GoogleAuth(store: TokenStore())
 
     var body: some Scene {
-        Window("DrivePeak", id: "main") {
+        Window("Spyglass", id: "main") {
             ContentView()
                 .environmentObject(auth)
                 .onAppear { auth.restore() }
@@ -1206,14 +1206,14 @@ At the bottom of `ContentView.swift`:
 Run:
 ```
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project DrivePeak.xcodeproj -scheme DrivePeak -configuration Release build -derivedDataPath /tmp/drivepeak-dd
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Spyglass.xcodeproj -scheme Spyglass -configuration Release build -derivedDataPath /tmp/spyglass-dd
 ```
 Expected: BUILD SUCCEEDED.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add App/ContentView.swift App/DrivePeakApp.swift
+git add App/ContentView.swift App/SpyglassApp.swift
 git commit -m "Add Google sign-in / sign-out row to the host app"
 ```
 
@@ -1228,7 +1228,7 @@ git commit -m "Add Google sign-in / sign-out row to the host app"
 
 - [ ] **Step 1: Write the README**
 
-Cover: what DrivePeak is (good Quick Look previews for Google Workspace stubs); the two tiers; build/install steps (`xcodegen generate`, the headless `xcodebuild` install command, `xattr -cr`, reopen app once); creating `GoogleOAuth.plist` from the downloaded `client_secret_*.json` (copy the `client_id`); the Apple Developer Team ID step (fill `Secrets.xcconfig`, flip signing) for Tier 1; how to run tests; the known limitation that Tier 1 needs the paid account. Include the fact that Forms/Sites always show the Tier 0 card.
+Cover: what Spyglass is (good Quick Look previews for Google Workspace stubs); the two tiers; build/install steps (`xcodegen generate`, the headless `xcodebuild` install command, `xattr -cr`, reopen app once); creating `GoogleOAuth.plist` from the downloaded `client_secret_*.json` (copy the `client_id`); the Apple Developer Team ID step (fill `Secrets.xcconfig`, flip signing) for Tier 1; how to run tests; the known limitation that Tier 1 needs the paid account. Include the fact that Forms/Sites always show the Tier 0 card.
 
 - [ ] **Step 2: Commit**
 
