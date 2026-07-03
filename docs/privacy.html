@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Policy — Spyglass</title>
+<meta name="description" content="How Spyglass handles Google Drive access and your data: read-only, local-only, no servers, no third parties.">
+<link rel="icon" href="./assets/spyglass-icon.png">
+<style>
+:root{color-scheme:light dark;--accent:#B8945F;--bg:#f5f5f7;--fg:#1d1d1f;--muted:#6e6e73;--line:#e5e5e7}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1514;--fg:#f5f5f7;--muted:#a1a1a6;--line:#2c3634}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:680px;margin:0 auto;padding:clamp(48px,8vh,96px) 24px}
+.back{display:inline-block;color:var(--accent);text-decoration:none;font-size:15px;font-weight:600;margin-bottom:28px}
+.back:hover{text-decoration:underline}
+h1{font-size:clamp(30px,5vw,44px);font-weight:700;letter-spacing:-.02em;margin:0 0 8px}
+.updated{color:var(--muted);font-size:15px;margin:0 0 36px}
+h2{font-size:clamp(19px,2.6vw,24px);font-weight:700;margin:36px 0 10px}
+p,li{color:var(--fg)}
+p{margin:0 0 14px}
+ul{padding-left:22px;margin:0 0 14px}
+li{margin-bottom:8px}
+.muted{color:var(--muted)}
+code{background:rgba(128,128,128,.15);padding:1px 6px;border-radius:5px;font-size:.9em}
+a{color:var(--accent)}
+footer{margin-top:48px;padding-top:24px;border-top:1px solid var(--line);color:var(--muted);font-size:14px}
+footer a{text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a class="back" href="./index.html">← Spyglass</a>
+
+  <h1>Privacy Policy</h1>
+  <p class="updated">Last updated: July 4, 2026</p>
+
+  <p>Spyglass is a macOS app that shows Quick&nbsp;Look previews for Google&nbsp;Drive stub files. This policy explains what data it accesses and how that data is handled. In short: Spyglass runs entirely on your Mac, has no server, and never sends your data anywhere.</p>
+
+  <h2>What data Spyglass accesses</h2>
+  <p>Spyglass accesses your Google data <strong>only if you enable the paid rendered-preview feature and sign in with Google</strong>. The free info-card tier needs no account and accesses no Google data at all. When you do sign in, it requests:</p>
+  <ul>
+    <li><strong>Google&nbsp;Drive, read-only.</strong> The scope is <code>https://www.googleapis.com/auth/drive.readonly</code>. Spyglass reads your documents so they can be exported and shown as previews. It cannot create, edit, delete, move, or share your files.</li>
+    <li><strong>Your account email.</strong> Read once so the app can display which Google account is signed in.</li>
+  </ul>
+
+  <h2>How your data is used</h2>
+  <ul>
+    <li>When you preview a supported document, Spyglass fetches its PDF export from the Google&nbsp;Drive API and renders it in Quick&nbsp;Look.</li>
+    <li>Rendered exports are cached locally on your Mac, inside the app's sandboxed container, so previews stay fast. A document's cache entry is refreshed when the document changes.</li>
+    <li>Your email is used solely to label the signed-in account in the app's menu.</li>
+  </ul>
+  <p>Spyglass does <strong>not</strong> use your data for anything else. There is no analytics, no tracking, no advertising, and no profiling.</p>
+
+  <h2>Where your data goes</h2>
+  <p><strong>Nowhere but your own Mac and Google.</strong> Spyglass has no backend server. Your documents and email are exchanged directly between your device and Google's APIs. We never receive, store, sell, or share your data with any third party. Google's own <a href="https://policies.google.com/privacy">Privacy Policy</a> governs their side of that exchange.</p>
+
+  <h2>Storage and retention</h2>
+  <ul>
+    <li><strong>Access and refresh tokens</strong> are stored in your macOS Keychain so you don't have to sign in repeatedly.</li>
+    <li><strong>Rendered PDF exports</strong> are cached in the app's local container and can be cleared by the app at any time.</li>
+    <li>All of this lives only on your device.</li>
+  </ul>
+
+  <h2>Revoking access</h2>
+  <p>Signing out from the Spyglass menu clears the stored tokens and cache and revokes the grant with Google, so access ends immediately. You can also revoke Spyglass at any time from your <a href="https://myaccount.google.com/permissions">Google Account permissions page</a>.</p>
+
+  <h2>Children</h2>
+  <p>Spyglass is a general-purpose developer tool and is not directed at children under 13.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If this policy changes, the updated version will be posted on this page with a new "last updated" date.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy or your data? Email <a href="mailto:yehonatan.2350@gmail.com">yehonatan.2350@gmail.com</a>.</p>
+
+  <footer>
+    <a href="./index.html">← Back to Spyglass</a>
+  </footer>
+
+</div>
+</body>
+</html>
