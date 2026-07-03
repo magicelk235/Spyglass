@@ -3,113 +3,54 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Spyglass — Real Quick Look previews for Google Workspace files on macOS</title>
-<meta name="description" content="Spyglass gives Google Docs, Sheets, Slides, Drawings, Forms, and Sites real Quick Look previews on macOS — press Space, see the document, not a blob of JSON.">
-<meta property="og:title" content="Spyglass — Real Quick Look previews for Google Workspace files">
-<meta property="og:description" content="Press Space on a Google Drive stub file and see the document, not raw JSON.">
-<meta property="og:type" content="website">
-<link rel="icon" href="./assets/spyglass-icon.png">
+<title>Magic Elk Labs — Mac apps</title>
+<meta name="description" content="Magic Elk Labs builds focused Mac apps.">
 <style>
 :root{
   color-scheme:light dark;
-  --brass:#B8945F;--teal-top:#0B3D3A;--teal-bot:#072826;--ink:#1A1C26;
+  --brass:#B8945F;--teal-top:#0B3D3A;--teal-bot:#072826;
   --bg:#f5f5f7;--fg:#1d1d1f;--muted:#6e6e73;--card:#fff;--line:#e5e5e7
 }
 @media(prefers-color-scheme:dark){:root{--bg:#0f1514;--fg:#f5f5f7;--muted:#a1a1a6;--card:#1a2120;--line:#2c3634}}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--fg);line-height:1.55;-webkit-font-smoothing:antialiased}
-.wrap{max-width:760px;margin:0 auto;padding:0 24px}
-
-header{position:relative;text-align:center;color:#fff;border-radius:0 0 32px 32px;background:linear-gradient(160deg,var(--teal-top),var(--teal-bot));padding:clamp(56px,10vh,120px) 24px clamp(48px,7vh,88px);overflow:hidden}
-.icon{width:clamp(104px,16vw,148px);height:clamp(104px,16vw,148px);margin:0 auto clamp(24px,4vh,36px);display:block;border-radius:24%;box-shadow:0 16px 40px rgba(0,0,0,.35)}
-h1{font-size:clamp(38px,6.5vw,68px);font-weight:700;letter-spacing:-.02em;margin:0 0 14px;line-height:1.02}
-.tag{font-size:clamp(17px,2.4vw,22px);color:rgba(255,255,255,.72);margin:0 auto;max-width:30ch}
-.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:clamp(28px,4vh,40px)}
-.btn{display:inline-block;padding:13px 24px;border-radius:12px;font-size:16px;font-weight:600;text-decoration:none;transition:opacity .15s}
-.btn:hover{opacity:.88}
-.btn-primary{background:var(--brass);color:#1a1206}
-.btn-secondary{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25)}
-
-section{padding:clamp(32px,5vh,52px) 0;border-top:1px solid var(--line)}
-section:first-of-type{border-top:none}
-h2{font-size:clamp(23px,3.4vw,32px);font-weight:700;letter-spacing:-.01em;margin:0 0 10px}
-.lead{color:var(--muted);margin:0 0 26px;font-size:17px}
-code{background:rgba(128,128,128,.16);padding:1px 6px;border-radius:5px;font-size:.88em}
-
-.tier{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin:14px 0}
-.tier h3{margin:0 0 6px;font-size:19px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.badge{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:20px}
-.badge.free{color:var(--brass);background:transparent;border:1px solid var(--brass)}
-.badge.paid{color:#1a1206;background:var(--brass)}
-.tier p{margin:0;color:var(--muted);font-size:15px}
-.price{font-weight:600;color:var(--fg)}
-
-.data ul{padding-left:20px;margin:0}
-.data li{margin:0 0 14px;color:var(--muted)}
-.data li strong{color:var(--fg);font-weight:600}
-
-footer{text-align:center;padding:clamp(40px,7vh,72px) 0;color:var(--muted);font-size:14px;border-top:1px solid var(--line)}
+.wrap{max-width:640px;margin:0 auto;padding:0 24px}
+header{text-align:center;padding:clamp(72px,14vh,160px) 24px clamp(40px,7vh,80px)}
+h1{font-size:clamp(34px,6vw,56px);font-weight:700;letter-spacing:-.02em;margin:0 0 12px}
+.tag{font-size:clamp(17px,2.4vw,20px);color:var(--muted);margin:0}
+h2{font-size:15px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 16px}
+.app{display:flex;align-items:center;gap:16px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin:12px 0;text-decoration:none;color:inherit;transition:border-color .15s}
+.app:hover{border-color:var(--brass)}
+.app img{width:52px;height:52px;border-radius:24%;flex:none}
+.app .name{font-size:18px;font-weight:600;margin:0}
+.app .desc{font-size:14px;color:var(--muted);margin:2px 0 0}
+footer{text-align:center;padding:clamp(48px,8vh,88px) 0 clamp(40px,6vh,64px);color:var(--muted);font-size:14px}
 footer a{color:var(--brass);text-decoration:none}
-footer a:hover{text-decoration:underline}
-footer .sep{margin:0 8px;opacity:.5}
 </style>
 </head>
 <body>
 
   <header>
-    <picture>
-      <source srcset="./assets/spyglass-appicon-dark-1024.png" media="(prefers-color-scheme:dark)">
-      <img class="icon" src="./assets/spyglass-appicon-light-1024.png" alt="Spyglass app icon" width="148" height="148">
-    </picture>
-    <h1>Spyglass</h1>
-    <p class="tag">Real Quick&nbsp;Look previews for Google&nbsp;Workspace files on macOS.</p>
-    <div class="cta">
-      <a class="btn btn-primary" href="https://github.com/magicelk235/Spyglass/releases">Download</a>
-      <a class="btn btn-secondary" href="https://github.com/magicelk235/Spyglass">View on GitHub</a>
-    </div>
+    <h1>Magic Elk Labs</h1>
+    <p class="tag">Focused Mac apps.</p>
   </header>
 
   <div class="wrap">
+    <h2>Apps</h2>
 
-  <section>
-    <h2>What it does</h2>
-    <p class="lead">When you sync Google&nbsp;Drive to your Mac, files like Docs, Sheets, Slides, Drawings, Forms and Sites don't download as real files. They land as tiny stub files such as <code>.gdoc</code> and <code>.gsheet</code> that hold only a document ID. Press Space on one and macOS shows a useless blob of JSON. Spyglass shows the actual document instead.</p>
-
-    <div class="tier">
-      <h3>Info card <span class="badge free">Free</span></h3>
-      <p>A branded card for all six file types. It shows the document icon, title, owner, and a link to open the file on Google. Works instantly and offline. No account needed.</p>
-    </div>
-    <div class="tier">
-      <h3>Rendered preview <span class="badge paid">Paid · $9</span></h3>
-      <p>For Docs, Sheets, Slides and Drawings, Spyglass fetches the document from Google&nbsp;Drive and renders a real first-page preview. This needs a Google sign-in. If you're not signed in, or the network is slow, it falls back to the free info card. The preview is never blank and never hangs.</p>
-    </div>
-    <p class="lead" style="margin-top:20px"><span class="price">$9, paid once.</span> No subscription. Runs on macOS&nbsp;14 or later.</p>
-  </section>
-
-  <section>
-    <h2>Why Spyglass needs Google access</h2>
-    <p class="lead">Rendered previews are the optional paid feature. If you enable them and sign in, Spyglass asks permission to read your Google&nbsp;Drive so it can show your documents. Exactly what that means:</p>
-    <div class="data">
-      <ul>
-        <li><strong>Read-only.</strong> Spyglass requests the <code>drive.readonly</code> scope. It can read your files to export them; it can never edit, delete, move, or share anything.</li>
-        <li><strong>Used only to render previews.</strong> The access fetches a document's export so it can be shown in Quick&nbsp;Look. That is the only thing it is used for.</li>
-        <li><strong>Stays on your Mac.</strong> Exports are rendered and cached locally on your device. Spyglass has no server, so your documents are never uploaded to us or sent to any third party.</li>
-        <li><strong>Your email.</strong> Spyglass reads your account email only to show which account is signed in.</li>
-        <li><strong>Reversible.</strong> Signing out clears the saved tokens and revokes the grant at Google, so access ends immediately.</li>
-      </ul>
-    </div>
-  </section>
+    <a class="app" href="./spyglass/">
+      <img src="./spyglass/assets/spyglass-icon.png" alt="Spyglass icon">
+      <div>
+        <p class="name">Spyglass</p>
+        <p class="desc">Real Quick Look previews for Google Workspace files on macOS.</p>
+      </div>
+    </a>
+  </div>
 
   <footer>
-    <a href="./privacy.html">Privacy Policy</a>
-    <span class="sep">·</span>
-    <a href="mailto:yehonatan.2350@gmail.com">Contact</a>
-    <span class="sep">·</span>
-    <a href="https://github.com/magicelk235/Spyglass">Source</a>
-    <div style="margin-top:16px">© 2026 Spyglass</div>
+    <a href="mailto:yehonatan.2350@gmail.com">yehonatan.2350@gmail.com</a>
   </footer>
 
-  </div>
 </body>
 </html>
