@@ -15,17 +15,19 @@ struct ContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            hero
-            Divider()
-            Form {
-                statusSection
-                if isPro && driveBlocked { fullDiskSection }
-                if isPro { accountSection }
-            }
-            .formStyle(.grouped)
-            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                // Re-check when the user comes back from System Settings.
-                driveBlocked = DriveAccess.isBlocked()
+            if driveBlocked {
+                // Full Disk Access is mandatory to read Drive — until it's
+                // granted nothing else in the app works, so the popover shows
+                // only this gate (no hero, no Form).
+                fdaGate
+            } else {
+                hero
+                Divider()
+                Form {
+                    statusSection
+                    if isPro { accountSection }
+                }
+                .formStyle(.grouped)
             }
             // Invisible: keeps Cmd-Q working without showing a Quit button.
             Button("Quit Spyglass") { NSApp.terminate(nil) }
@@ -35,6 +37,16 @@ struct ContentView: View {
                 .accessibilityHidden(true)
         }
         .frame(width: 460, height: 520)
+        .onAppear {
+            // The popover reuses one persistent view, so @State init runs only
+            // once at launch. Re-check every time the popover opens, otherwise
+            // toggling Full Disk Access while the app is running is never seen.
+            driveBlocked = DriveAccess.isBlocked()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // Also re-check when returning from System Settings.
+            driveBlocked = DriveAccess.isBlocked()
+        }
     }
 
     // MARK: - Hero
@@ -97,18 +109,33 @@ struct ContentView: View {
 
     // MARK: - Full Disk Access
 
-    private var fullDiskSection: some View {
-        Section {
+    private var fdaGate: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "lock.shield")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+            Text("Full Disk Access needed")
+                .font(.title2).bold()
+            Text("Grant Full Disk Access so Spyglass can read your Drive and render previews.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 340)
             Button {
                 DriveAccess.openSettings()
             } label: {
-                Label("Open Full Disk Access settings", systemImage: "lock.open")
+                Label("Open Full Disk Access settings", systemImage: "arrow.up.forward.app")
+                    .frame(maxWidth: .infinity)
             }
-        } header: {
-            Text("Action needed")
-        } footer: {
-            Text("Spyglass needs Full Disk Access to read your Google Drive and render previews. Turn it on for Spyglass, then relaunch.")
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .frame(maxWidth: 340)
+            Spacer()
         }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     // MARK: - Account (Tier 1 only)

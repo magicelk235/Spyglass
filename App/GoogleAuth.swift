@@ -104,8 +104,22 @@ public final class GoogleAuth: ObservableObject {
         email = store.load()?.email
     }
 
-    /// Clears saved tokens and resets the signed-in state.
+    /// Clears saved tokens and resets the signed-in state. Also revokes the
+    /// refresh token at Google so the grant is killed server-side, not just
+    /// forgotten locally — fire-and-forget: local sign-out must succeed even if
+    /// the network call fails.
     public func signOut() {
+        if let token = store.load()?.refreshToken {
+            let session = self.session
+            Task.detached {
+                var req = URLRequest(url: URL(string: GoogleOAuthEndpoints.revoke)!)
+                req.httpMethod = "POST"
+                req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+                let enc = token.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? token
+                req.httpBody = Data("token=\(enc)".utf8)
+                _ = try? await session.data(for: req)
+            }
+        }
         try? store.clear()
         email = nil
     }
@@ -228,9 +242,10 @@ public final class GoogleAuth: ObservableObject {
                     // Build a full URL so URLComponents can parse query items.
                     let full = "http://127.0.0.1\(path)"
 
-                    // Send a minimal HTTP response so the browser doesn't hang.
-                    let body = "<html><body><h2>Sign-in complete — you can close this tab.</h2></body></html>"
-                    let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
+                    // Send a styled response so the browser doesn't hang.
+                    // charset=utf-8 (header + meta) fixes the em-dash mojibake.
+                    let body = "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Spyglass</title><style>:root{color-scheme:light dark}html,body{height:100%;margin:0}body{display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f5f5f7;color:#1d1d1f}@media(prefers-color-scheme:dark){body{background:#1d1d1f;color:#f5f5f7}}.card{text-align:center;padding:40px 48px}.mark{font-size:15px;font-weight:600;letter-spacing:.04em;color:#B8945F;margin:0 0 20px}h1{font-size:22px;font-weight:600;margin:0 0 8px}p{font-size:15px;opacity:.6;margin:0}</style></head><body><div class=\"card\"><p class=\"mark\">SPYGLASS</p><h1>You're signed in</h1><p>You can close this tab and return to the app.</p></div></body></html>"
+                    let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.utf8.count)\r\nConnection: close\r\n\r\n\(body)"
                     conn.send(content: Data(response.utf8), completion: .idempotent)
 
                     // Parseable URL → success; a redirect line we can't turn into

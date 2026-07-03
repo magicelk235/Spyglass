@@ -46,6 +46,7 @@ public enum GoogleOAuthEndpoints {
     public static let auth = "https://accounts.google.com/o/oauth2/auth"
     public static let token = "https://oauth2.googleapis.com/token"
     public static let userinfo = "https://www.googleapis.com/oauth2/v3/userinfo"
+    public static let revoke = "https://oauth2.googleapis.com/revoke"
     public static let scopes = [
         "https://www.googleapis.com/auth/drive.readonly",
         "https://www.googleapis.com/auth/userinfo.email",
