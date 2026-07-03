@@ -27,6 +27,12 @@ struct ContentView: View {
                 // Re-check when the user comes back from System Settings.
                 driveBlocked = DriveAccess.isBlocked()
             }
+            // Invisible: keeps Cmd-Q working without showing a Quit button.
+            Button("Quit Spyglass") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .accessibilityHidden(true)
         }
         .frame(width: 460, height: 520)
     }
@@ -35,10 +41,6 @@ struct ContentView: View {
 
     private var hero: some View {
         VStack(spacing: 10) {
-            // The real app icon reads as "premium app", not a glyph in a circle.
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 76, height: 76)
             Text("Spyglass").font(.title).bold()
             Text("Real Quick Look previews for Google Workspace files")
                 .font(.callout)
@@ -48,8 +50,8 @@ struct ContentView: View {
                 .frame(maxWidth: 320)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 32)
-        .padding(.bottom, 24)
+        .padding(.top, 28)
+        .padding(.bottom, 22)
     }
 
     // MARK: - Status / license
@@ -76,13 +78,15 @@ struct ContentView: View {
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(activate)
                     Button(activating ? "Checking…" : "Unlock", action: activate)
+                        .buttonStyle(.borderedProminent)
                         .disabled(activating || licenseInput.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 if let err = licenseError {
                     Text(err).font(.callout).foregroundStyle(.red)
                 }
-                Link("Buy a key — $9, one-time",
-                     destination: URL(string: "https://gumroad.com/l/spyglass")!)
+                Link(destination: URL(string: "https://magicelk235.gumroad.com/l/Spyglass")!) {
+                    Label("Buy a key — $9, one-time", systemImage: "cart")
+                }
             } header: {
                 Text("Unlock Tier 1")
             } footer: {
@@ -120,12 +124,17 @@ struct ContentView: View {
                     }
                 }
             } else {
+                // Single most important action for an unlocked-but-unconnected
+                // user: give it primary weight (one prominent CTA per screen).
                 Button {
                     Task { try? await auth.signIn() }
                 } label: {
                     Label(auth.isSigningIn ? "Signing in…" : "Sign in with Google",
                           systemImage: "person.badge.key")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .disabled(auth.isSigningIn)
                 if let err = auth.lastError {
                     Text(err).font(.callout).foregroundStyle(.red)
