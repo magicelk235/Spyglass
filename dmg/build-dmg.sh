@@ -27,16 +27,24 @@ rm -f "$OUT"
 STAGE=$(mktemp -d)
 cp -R "$SRC/$APP" "$STAGE/"
 
+# Multi-res tiff so the background is retina-sharp (@1x + @2x from make-bg.swift).
+BG=$(mktemp -d)/dmg-bg.tiff
+tiffutil -cathidpicheck dmg/assets/dmg-bg.png dmg/assets/dmg-bg@2x.png -out "$BG"
+
+# Icon coords must match the fake-QL-window layout in make-bg.swift
+# (icons at x 198/455, y 265; app icon nudged left of symmetric 205 so the
+# visible artwork gaps to the window edges match).
 create-dmg \
   --volname "Spyglass" \
-  --background "dmg/assets/dmg-bg.png" \
+  --volicon "$SRC/$APP/Contents/Resources/AppIcon.icns" \
+  --background "$BG" \
   --window-pos 200 120 \
   --window-size 660 420 \
-  --icon-size 120 \
+  --icon-size 110 \
   --text-size 13 \
-  --icon "$APP" 150 210 \
+  --icon "$APP" 198 265 \
   --hide-extension "$APP" \
-  --app-drop-link 510 210 \
+  --app-drop-link 455 265 \
   --no-internet-enable \
   "$OUT" "$STAGE"
 
