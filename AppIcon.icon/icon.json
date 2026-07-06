@@ -1,8 +1,8 @@
 {
   "fill" : {
     "linear-gradient" : [
-      "display-p3:0.70674,0.58654,0.37454,1.00000",
-      "display-p3:0.51027,0.39914,0.22689,1.00000"
+      "display-p3:0.24431,0.32063,0.30566,1.00000",
+      "display-p3:0.13619,0.17873,0.17039,1.00000"
     ],
     "orientation" : {
       "start" : {
@@ -20,15 +20,7 @@
       "layers" : [
         {
           "glass" : true,
-          "image-name-specializations" : [
-            {
-              "value" : "normal.png"
-            },
-            {
-              "appearance" : "light",
-              "value" : "light.png"
-            }
-          ],
+          "image-name" : "normal.png",
           "name" : "light",
           "opacity" : 0.9,
           "position" : {

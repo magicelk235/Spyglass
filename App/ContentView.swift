@@ -12,6 +12,8 @@ struct ContentView: View {
     @State private var activating = false
     @State private var licenseError: String?
     @State private var driveBlocked = DriveAccess.isBlocked()
+    @State private var hoveringLicense = false
+    @State private var hoveringAccount = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,12 +31,16 @@ struct ContentView: View {
                 }
                 .formStyle(.grouped)
             }
-            // Invisible: keeps Cmd-Q working without showing a Quit button.
-            Button("Quit Spyglass") { NSApp.terminate(nil) }
-                .keyboardShortcut("q")
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .accessibilityHidden(true)
+            Divider()
+            HStack {
+                Spacer()
+                Button("Quit Spyglass") { NSApp.terminate(nil) }
+                    .keyboardShortcut("q")
+                    .buttonStyle(.bordered)
+                    .tint(.red)
+                Spacer()
+            }
+            .padding(.vertical, 10)
         }
         .frame(width: 460, height: 520)
         .onAppear {
@@ -78,6 +84,16 @@ struct ContentView: View {
                 } label: {
                     Text("Tier 1")
                 }
+                .overlay {
+                    Button("Deactivate") {
+                        LicenseStore().clear()
+                        isPro = false
+                    }
+                    .buttonStyle(.link)
+                    .foregroundStyle(.red)
+                    .opacity(hoveringLicense ? 1 : 0)
+                }
+                .onHover { hoveringLicense = $0 }
             } header: {
                 Text("Rendered previews")
             } footer: {
@@ -145,11 +161,15 @@ struct ContentView: View {
         Section {
             if let email = auth.email {
                 LabeledContent("Google") {
-                    HStack(spacing: 8) {
-                        Text(email).lineLimit(1).truncationMode(.middle)
-                        Button("Sign out") { auth.signOut() }.buttonStyle(.link)
-                    }
+                    Text(email).lineLimit(1).truncationMode(.middle)
                 }
+                .overlay {
+                    Button("Sign out") { auth.signOut() }
+                        .buttonStyle(.link)
+                        .foregroundStyle(.red)
+                        .opacity(hoveringAccount ? 1 : 0)
+                }
+                .onHover { hoveringAccount = $0 }
             } else {
                 // Single most important action for an unlocked-but-unconnected
                 // user: give it primary weight (one prominent CTA per screen).
