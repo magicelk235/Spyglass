@@ -20,7 +20,7 @@ final class StubScanner: NSObject {
     private let queue = FetchQueue.groupContainerURL().map { FetchQueue(directory: $0) }
 
     private var exportableExtensions: [String] {
-        WorkspaceType.allCases.filter(\.isExportable).map(\.fileExtension)
+        WorkspaceType.allCases.filter(\.isPreviewable).map(\.fileExtension)
     }
 
     func start() {
@@ -85,7 +85,7 @@ final class StubScanner: NSObject {
     private func enqueueStub(at url: URL) {
         guard let queue,
               let stub = try? StubParser.parse(fileAt: url),
-              stub.type.isExportable else { return }
+              stub.type.isPreviewable else { return }
         do {
             try queue.enqueue(docID: stub.docID)
         } catch {

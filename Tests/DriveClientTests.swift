@@ -87,11 +87,37 @@ final class DriveClientTests: XCTestCase {
 
     func testMetadataDecodes() async throws {
         StubURLProtocol.routes = [
-            (match: "fields=", status: 200, body: Data(#"{"name":"My Doc","modifiedTime":"2026-07-01T00:00:00Z"}"#.utf8), firstCallStatus: nil),
+            (match: "fields=", status: 200, body: Data(#"{"name":"My Doc","modifiedTime":"2026-07-01T00:00:00Z","thumbnailLink":"https://x/=s220","mimeType":"application/vnd.google-apps.document"}"#.utf8), firstCallStatus: nil),
         ]
         let c = makeClient(tokens: validToken())
         let m = try await c.metadata(docID: "DOC1")
-        XCTAssertEqual(m, DriveMetadata(name: "My Doc", modifiedTime: "2026-07-01T00:00:00Z"))
+        XCTAssertEqual(m, DriveMetadata(name: "My Doc", modifiedTime: "2026-07-01T00:00:00Z", thumbnailLink: "https://x/=s220", mimeType: "application/vnd.google-apps.document"))
+    }
+
+    /// fetchThumbnail resolves thumbnailLink, upsizes =s220 -> =s1600, fetches it.
+    func testFetchThumbnailUpsizesAndFetches() async throws {
+        StubURLProtocol.routes = [
+            (match: "fields=", status: 200, body: Data(#"{"name":"F","modifiedTime":"T","thumbnailLink":"https://lh3.example/img=s220"}"#.utf8), firstCallStatus: nil),
+            (match: "=s2048", status: 200, body: Data("IMGBYTES".utf8), firstCallStatus: nil),
+        ]
+        let c = makeClient(tokens: validToken())
+        let data = try await c.fetchThumbnail(docID: "DOC1")
+        XCTAssertEqual(String(data: data, encoding: .utf8), "IMGBYTES")
+        XCTAssertTrue(StubURLProtocol.requestedURLs.contains { $0.contains("=s2048") })
+    }
+
+    /// No thumbnailLink in metadata -> noThumbnail, never falls back silently.
+    func testFetchThumbnailThrowsWhenAbsent() async throws {
+        StubURLProtocol.routes = [
+            (match: "fields=", status: 200, body: Data(#"{"name":"F","modifiedTime":"T"}"#.utf8), firstCallStatus: nil),
+        ]
+        let c = makeClient(tokens: validToken())
+        do {
+            _ = try await c.fetchThumbnail(docID: "DOC1")
+            XCTFail("expected noThumbnail")
+        } catch let e as DriveError {
+            XCTAssertEqual(e, .noThumbnail)
+        }
     }
 
     // MARK: - FIX 4: branch coverage tests

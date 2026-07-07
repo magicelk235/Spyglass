@@ -70,6 +70,12 @@ public enum WorkspaceType: String, CaseIterable, Sendable {
         }
     }
 
+    /// Whether Tier 1 has any rendered-preview path for this type. Exportable
+    /// types render their PDF export; Forms/Sites render the Drive-hosted
+    /// thumbnail (wrapped as a PDF). Every type is previewable → the scanner
+    /// enqueues all of them.
+    public var isPreviewable: Bool { true }
+
     /// SF Symbol used on the offline card.
     public var systemImage: String {
         switch self {

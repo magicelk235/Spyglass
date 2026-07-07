@@ -3,10 +3,16 @@ import Foundation
 public struct DriveMetadata: Equatable, Decodable {
     public let name: String
     public let modifiedTime: String
+    /// Server-rendered preview image URL. Present for Forms/Sites (which can't
+    /// PDF-export) and most other types. Short-lived; fetch with the Bearer token.
+    public let thumbnailLink: String?
+    /// Drive mimeType, e.g. "application/vnd.google-apps.site". Lets the app
+    /// pick a per-type render path without re-parsing the on-disk stub.
+    public let mimeType: String?
 }
 
 public enum DriveError: Error, Equatable {
-    case notAuthed, http(Int), refreshFailed, decode
+    case notAuthed, http(Int), refreshFailed, decode, noThumbnail
 }
 
 /// Talks to the Drive v3 API. Refreshes the access token lazily on expiry or a
@@ -32,12 +38,25 @@ public final class DriveClient {
 
     public func metadata(docID: String) async throws -> DriveMetadata {
         var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files/\(docID)")!
-        c.queryItems = [.init(name: "fields", value: "name,modifiedTime")]
+        c.queryItems = [.init(name: "fields", value: "name,modifiedTime,thumbnailLink,mimeType")]
         let data = try await authedData(url: c.url!)
         guard let m = try? JSONDecoder().decode(DriveMetadata.self, from: data) else {
             throw DriveError.decode
         }
         return m
+    }
+
+    /// Fetches the server-rendered preview image bytes for a doc. Used as the
+    /// Tier 1 source for Forms/Sites, which the Drive API can't PDF-export. The
+    /// `size` bumps Google's thumbnail to a legible resolution (default ~220px).
+    public func fetchThumbnail(docID: String, size: Int = 2048) async throws -> Data {
+        guard let link = try await metadata(docID: docID).thumbnailLink else {
+            throw DriveError.noThumbnail
+        }
+        // thumbnailLink ends in "=s220"; swap for a larger size for legibility.
+        let sized = link.replacingOccurrences(
+            of: #"=s\d+$"#, with: "=s\(size)", options: .regularExpression)
+        return try await authedData(url: URL(string: sized)!)
     }
 
     // MARK: - Auth plumbing

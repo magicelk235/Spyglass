@@ -1,5 +1,7 @@
 import Foundation
 import OSLog
+import AppKit
+import PDFKit
 import SpyglassKit
 
 private let log = Logger(subsystem: "com.spyglass.app", category: "fetchworker")
@@ -103,7 +105,7 @@ final class FetchWorker: NSObject {
                 let meta = try await client.metadata(docID: docID)
                 // Fresh already? Skip the export (cache hit doubles as the check).
                 if cache.cachedPDF(docID: docID, modifiedTime: meta.modifiedTime) == nil {
-                    let pdf = try await client.exportPDF(docID: docID)
+                    let pdf = try await renderPDF(docID: docID, client: client)
                     try cache.store(docID: docID, modifiedTime: meta.modifiedTime, pdf: pdf)
                     log.notice("Fetched \(docID, privacy: .public) (\(pdf.count) bytes)")
                 }
@@ -115,4 +117,39 @@ final class FetchWorker: NSObject {
             queue.complete(docID: docID)
         }
     }
+}
+
+
+/// Picks the render for a doc, cheapest-that-works first:
+///  - exportable types (Docs/Sheets/Slides/Drawings): Drive PDF export.
+///  - everything else (Forms/Sites): the Drive thumbnail as a single-page PDF.
+/// Falls back to the thumbnail so a preview always lands.
+func renderPDF(docID: String, client: DriveClient) async throws -> Data {
+    if let exported = try? await client.exportPDF(docID: docID) {
+        return exported
+    }
+    let image = try await client.fetchThumbnail(docID: docID)
+    return try pdfFromImage(image)
+}
+
+/// Wraps raw image bytes (a Drive thumbnail) in a single-page PDF sized to the
+/// image, so Forms/Sites previews flow through the same PDFView cache/render
+/// path as exported docs. Throws if the bytes aren't a decodable image.
+private struct ThumbnailError: Error {}
+func pdfFromImage(_ imageData: Data) throws -> Data {
+    guard let image = NSImage(data: imageData), let rep = image.representations.first else {
+        throw ThumbnailError()
+    }
+    var box = CGRect(x: 0, y: 0, width: rep.pixelsWide, height: rep.pixelsHigh)
+    let pdf = NSMutableData()
+    guard let consumer = CGDataConsumer(data: pdf as CFMutableData),
+          let ctx = CGContext(consumer: consumer, mediaBox: &box, nil),
+          let cg = image.cgImage(forProposedRect: &box, context: nil, hints: nil) else {
+        throw ThumbnailError()
+    }
+    ctx.beginPDFPage(nil)
+    ctx.draw(cg, in: box)
+    ctx.endPDFPage()
+    ctx.closePDF()
+    return pdf as Data
 }
