@@ -6,6 +6,7 @@
 import AppKit
 
 
+let UI: CGFloat = 1.5   // window scale: logical 660x420 art rendered UIx bigger
 let W: CGFloat = 660, H: CGFloat = 420
 let space = CGColorSpace(name: CGColorSpace.sRGB)!
 func c(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat) -> CGColor {
@@ -52,10 +53,10 @@ func trimToAlpha(_ img: CGImage) -> CGImage? {
 }
 
 func render(scale: CGFloat, to path: String) {
-    guard let ctx = CGContext(data: nil, width: Int(W*scale), height: Int(H*scale),
+    guard let ctx = CGContext(data: nil, width: Int(W*UI*scale), height: Int(H*UI*scale),
         bitsPerComponent: 8, bytesPerRow: 0, space: space,
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
-    ctx.scaleBy(x: scale, y: scale)
+    ctx.scaleBy(x: UI*scale, y: UI*scale)
 
     // Desktop backdrop behind the fake window: very dark neutral
     ctx.setFillColor(c(0.075, 0.08, 0.078, 1))
