@@ -16,6 +16,7 @@ public enum GoogleAuthError: Error, LocalizedError {
     case portUnavailable
     case redirectFailed(String)
     case noCode
+    case stateMismatch
     case tokenExchangeFailed(Int, String)
     case noRefreshToken
     case decodeFailed
@@ -27,6 +28,7 @@ public enum GoogleAuthError: Error, LocalizedError {
         case .portUnavailable:      return "Could not determine bound port"
         case .redirectFailed(let s): return "OAuth redirect error: \(s)"
         case .noCode:               return "No code in redirect"
+        case .stateMismatch:        return "OAuth state mismatch - possible forged redirect"
         case .tokenExchangeFailed(let s, let d): return "Token exchange HTTP \(s): \(d)"
         case .noRefreshToken:       return "No refresh_token in response — re-auth required"
         case .decodeFailed:         return "Could not decode token response"
@@ -145,8 +147,9 @@ public final class GoogleAuth: ObservableObject {
         }
         let clientSecret = OAuthConfig.clientSecret()
 
-        let pkce = PKCE.generate()
-        let box  = ContinuationBox()
+        let pkce  = PKCE.generate()
+        let state = PKCE.makeState()
+        let box   = ContinuationBox()
 
         // 1. Start loopback listener on an ephemeral port.
         let (listener, port) = try await startListener(box: box)
@@ -157,7 +160,8 @@ public final class GoogleAuth: ObservableObject {
         // 2. Open the browser.
         let authURL = PKCE.makeAuthURL(clientID: clientID,
                                        redirectURI: redirectURI,
-                                       challenge: pkce.challenge)
+                                       challenge: pkce.challenge,
+                                       state: state)
         NSWorkspace.shared.open(authURL)
 
         // 3. Wait for the redirect callback.
@@ -172,7 +176,7 @@ public final class GoogleAuth: ObservableObject {
         }
 
         // 4. Extract the code (or surface an error parameter).
-        let code = try extractCode(from: redirectURL)
+        let code = try extractCode(from: redirectURL, expectedState: state)
 
         // 5. Exchange code for tokens.
         let tokens = try await exchangeCode(code,
@@ -266,10 +270,15 @@ public final class GoogleAuth: ObservableObject {
 
     // MARK: - Code Extraction
 
-    private func extractCode(from url: URL) throws -> String {
+    private func extractCode(from url: URL, expectedState: String) throws -> String {
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         if let errorParam = components?.queryItems?.first(where: { $0.name == "error" })?.value {
             throw GoogleAuthError.redirectFailed(errorParam)
+        }
+        // CSRF defense: the redirect must echo the exact state we sent.
+        let returnedState = components?.queryItems?.first(where: { $0.name == "state" })?.value
+        guard returnedState == expectedState else {
+            throw GoogleAuthError.stateMismatch
         }
         guard let code = components?.queryItems?.first(where: { $0.name == "code" })?.value,
               !code.isEmpty else {

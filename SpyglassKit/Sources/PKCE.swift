@@ -26,7 +26,16 @@ public struct PKCE {
             .replacingOccurrences(of: "=", with: "")
     }
 
-    public static func makeAuthURL(clientID: String, redirectURI: String, challenge: String) -> URL {
+    /// A random URL-safe token for the OAuth `state` parameter (CSRF defense).
+    /// 32 bytes -> 43-char base64url, same generator as the PKCE verifier.
+    public static func makeState() -> String {
+        var bytes = [UInt8](repeating: 0, count: 32)
+        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        precondition(status == errSecSuccess, "state: secure RNG failed")
+        return base64url(Data(bytes))
+    }
+
+    public static func makeAuthURL(clientID: String, redirectURI: String, challenge: String, state: String) -> URL {
         var c = URLComponents(string: GoogleOAuthEndpoints.auth)!
         c.queryItems = [
             .init(name: "client_id", value: clientID),
@@ -37,6 +46,7 @@ public struct PKCE {
             .init(name: "code_challenge_method", value: "S256"),
             .init(name: "access_type", value: "offline"),
             .init(name: "prompt", value: "consent"),
+            .init(name: "state", value: state),
         ]
         return c.url!
     }

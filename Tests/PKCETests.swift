@@ -22,7 +22,8 @@ final class PKCETests: XCTestCase {
         let url = PKCE.makeAuthURL(
             clientID: "cid.apps.googleusercontent.com",
             redirectURI: "http://127.0.0.1:5555/",
-            challenge: "CHAL"
+            challenge: "CHAL",
+            state: "STATE123"
         )
         let s = url.absoluteString
         XCTAssertTrue(s.hasPrefix("https://accounts.google.com/o/oauth2/auth?"))
@@ -32,7 +33,17 @@ final class PKCETests: XCTestCase {
         XCTAssertTrue(s.contains("response_type=code"))
         XCTAssertTrue(s.contains("access_type=offline"))
         XCTAssertTrue(s.contains("prompt=consent"))
+        XCTAssertTrue(s.contains("state=STATE123"))
         // scope is URL-encoded; check one scope fragment survives
         XCTAssertTrue(s.contains("drive.readonly"))
+    }
+
+    func testStateIsRandomURLSafeAndUnique() {
+        let a = PKCE.makeState()
+        let b = PKCE.makeState()
+        XCTAssertNotEqual(a, b) // two draws must differ (secure RNG)
+        XCTAssertGreaterThanOrEqual(a.count, 43)
+        let urlsafe = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        XCTAssertTrue(a.unicodeScalars.allSatisfy { urlsafe.contains($0) })
     }
 }
