@@ -170,3 +170,9 @@ Tests/               Unit tests for SpyglassKit
 docs/                Plan and design/spec documents
 project.yml          XcodeGen project spec (source of the .xcodeproj)
 ```
+
+## License
+
+Licensed under the [PolyForm Shield License 1.0.0](LICENSE). Copyright (c) 2026
+Yehonatan Cohen (magicelk235). You may freely use, modify, and share it — but
+you may not use it to build a product that competes with Spyglass.
