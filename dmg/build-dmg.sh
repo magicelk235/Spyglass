@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # Build a premium Spyglass.dmg from a Release build, then (optionally) notarize.
 #
-#   dmg/build-dmg.sh                 # build + package (unsigned dmg, Gatekeeper will warn)
+#   dmg/build-dmg.sh                 # build + package (signed, not notarized)
 #   NOTARIZE=1 dmg/build-dmg.sh      # also notarize + staple (needs paid Apple ID)
 #
 # Notarization env (only when NOTARIZE=1):
 #   AC_PROFILE   keychain profile from `xcrun notarytool store-credentials`
-# ponytail: no separate signing step — xcodebuild already signs the .app.
+#
+# The app is archived and exported rather than plain-built: a plain `xcodebuild
+# build` signs with the Apple Development cert, which Gatekeeper rejects on any
+# other Mac. Export with method=developer-id gets the Developer ID cert, a
+# secure timestamp, and the provisioning profile the App Group entitlement needs.
 #
 # Requires: dmgbuild (pip install --user dmgbuild). The background is applied by
 # a minimal Finder AppleScript (style-dmg.applescript) because on macOS 26 both
@@ -17,13 +21,22 @@ cd "$(dirname "$0")/.."   # repo root
 
 APP="Spyglass.app"
 DD=/tmp/spyglass-dd
-SRC="$DD/Build/Products/Release"
+ARCHIVE=/tmp/spyglass-archive.xcarchive
+SRC=/tmp/spyglass-export
 OUT="dmg/Spyglass.dmg"
 
-echo "==> Building Release"
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  xcodebuild -project Spyglass.xcodeproj -scheme Spyglass \
-  -configuration Release build -derivedDataPath "$DD" >/dev/null
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+
+echo "==> Archiving Release"
+rm -rf "$ARCHIVE" "$SRC"
+xcodebuild -project Spyglass.xcodeproj -scheme Spyglass \
+  -configuration Release -derivedDataPath "$DD" -archivePath "$ARCHIVE" \
+  -allowProvisioningUpdates archive >/dev/null
+
+echo "==> Exporting with Developer ID"
+xcodebuild -exportArchive -archivePath "$ARCHIVE" \
+  -exportOptionsPlist dmg/export-options.plist -exportPath "$SRC" \
+  -allowProvisioningUpdates >/dev/null
 xattr -cr "$SRC/$APP"
 
 echo "==> Packaging DMG"
@@ -77,8 +90,11 @@ chflags hidden "$MOUNT/.background"   # keep the bg folder out of the window
 sync; sleep 1
 cleanup; trap - EXIT
 
-# Step 4 — compress to the final read-only DMG.
+# Step 4 — compress to the final read-only DMG, then sign it. Signing the
+# container as well as the app is what lets Gatekeeper vouch for the download
+# itself, and notarytool rejects unsigned disk images.
 hdiutil convert "$RW" -format UDZO -o "$OUT" >/dev/null
+codesign --force --timestamp --sign "Developer ID Application: Bella Cohen (V8K8L3ZSD5)" "$OUT"
 
 echo "==> Wrote $OUT"
 
