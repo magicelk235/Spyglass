@@ -17,12 +17,12 @@ The offline card works instantly for all six types, with no sign-in. Press Space
 and you get a clean card with the document's icon, its title, the owner, and a
 link that opens the file on Google. It works with no network and no account.
 
-The rendered preview is optional and needs a one-time Google sign-in. For Docs,
-Sheets, Slides, and Drawings, Spyglass pulls the real document from Google Drive
-and shows it the way it actually looks. If you're offline, not signed in, or the
-document can't be rendered, Spyglass falls back to the offline card. The preview
-is never blank and never hangs. Forms and Sites can't be exported by Google, so
-they always show the card.
+The rendered preview is a paid unlock, $12 once, and it also needs a one-time
+Google sign-in. For Docs, Sheets, Slides, and Drawings, Spyglass pulls the real
+document from Google Drive and shows it the way it actually looks. If you're
+offline, not signed in, or the document can't be rendered, Spyglass falls back
+to the offline card. The preview is never blank and never hangs. Forms and Sites
+can't be exported by Google, so they always show the card.
 
 ## Requirements
 
@@ -32,13 +32,15 @@ they always show the card.
 
 ## Getting started
 
-1. Install Spyglass and open it once. It runs quietly from the menu bar.
+1. [Download Spyglass](https://github.com/magicelk235/spyglass/releases/latest/download/Spyglass.dmg)
+   and open it once. It runs quietly from the menu bar.
 2. Press Space on any Google stub file (`.gdoc`, `.gsheet`, `.gslides`,
    `.gdraw`, `.gform`, `.gsite`) in Finder. You'll see the Spyglass card right
    away.
-3. To turn on rendered previews, click the eye icon in the menu bar and sign in
-   with Google. From then on, Docs, Sheets, Slides, and Drawings show the real
-   document when you preview them.
+3. To turn on rendered previews, buy a key at
+   [magicelklabs.com/spyglass](https://magicelklabs.com/spyglass), paste it into
+   the menu-bar app, and sign in with Google. From then on, Docs, Sheets, Slides,
+   and Drawings show the real document when you preview them.
 
 Spyglass keeps your rendered previews ready in the background so they come up
 fast. Nothing leaves your Mac except the request to Google Drive for your own

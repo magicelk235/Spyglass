@@ -112,8 +112,8 @@ struct ContentView: View {
                 if let err = licenseError {
                     Text(err).font(.callout).foregroundStyle(.red)
                 }
-                Link(destination: URL(string: "https://magicelk235.gumroad.com/l/Spyglass")!) {
-                    Label("Buy a key — $9, one-time", systemImage: "cart")
+                Link(destination: URL(string: "https://magicelk235.gumroad.com/l/spyglass")!) {
+                    Label("Buy a key — $12, one-time", systemImage: "cart")
                 }
             } header: {
                 Text("Unlock Tier 1")
