@@ -19,8 +19,12 @@ final class StubScanner: NSObject {
     private var query: NSMetadataQuery?
     private let queue = FetchQueue.groupContainerURL().map { FetchQueue(directory: $0) }
 
-    private var exportableExtensions: [String] {
-        WorkspaceType.allCases.filter(\.isPreviewable).map(\.fileExtension)
+    /// Extensions worth opening. The six Google stub types, plus `.webloc` for
+    /// the third-party Drive clients that write bookmarks instead of stubs.
+    /// A `.webloc` pointing anywhere but a Google document fails to parse and
+    /// is skipped, so sweeping them all is harmless.
+    private var scannedExtensions: [String] {
+        WorkspaceType.allCases.filter(\.isPreviewable).map(\.fileExtension) + ["webloc"]
     }
 
     func start() {
@@ -39,8 +43,8 @@ final class StubScanner: NSObject {
         let q = NSMetadataQuery()
         q.searchScopes = [NSMetadataQueryLocalComputerScope]
         q.predicate = NSPredicate(
-            format: exportableExtensions.map { _ in "%K LIKE %@" }.joined(separator: " OR "),
-            argumentArray: exportableExtensions.flatMap { [NSMetadataItemFSNameKey, "*.\($0)"] })
+            format: scannedExtensions.map { _ in "%K LIKE %@" }.joined(separator: " OR "),
+            argumentArray: scannedExtensions.flatMap { [NSMetadataItemFSNameKey, "*.\($0)"] })
         NotificationCenter.default.addObserver(self, selector: #selector(harvest(_:)),
             name: .NSMetadataQueryDidFinishGathering, object: q)
         NotificationCenter.default.addObserver(self, selector: #selector(harvest(_:)),
@@ -69,7 +73,7 @@ final class StubScanner: NSObject {
             .appendingPathComponent("Library/CloudStorage")
         guard let mounts = try? FileManager.default.contentsOfDirectory(
             at: cloud, includingPropertiesForKeys: nil) else { return }
-        let exts = Set(exportableExtensions)
+        let exts = Set(scannedExtensions)
         for mount in mounts where mount.lastPathComponent.hasPrefix("GoogleDrive-") {
             guard let walker = FileManager.default.enumerator(
                 at: mount, includingPropertiesForKeys: nil,

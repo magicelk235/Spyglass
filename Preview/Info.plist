@@ -36,6 +36,11 @@
                 <string>com.spyglass.drawing</string>
                 <string>com.spyglass.form</string>
                 <string>com.spyglass.site</string>
+                <!-- Third-party Drive clients (Mountain Duck, CloudMounter,
+                     ExpanDrive) write a .webloc per document instead of a
+                     Google stub. Claiming the type means every .webloc routes
+                     here, so non-Google links get their own card below. -->
+                <string>com.apple.web-internet-location</string>
             </array>
         </dict>
     </dict>

@@ -36,6 +36,17 @@ public enum WorkspaceType: String, CaseIterable, Sendable {
         self = match
     }
 
+    /// Matches the type segment of a Google document URL, e.g. `spreadsheets`
+    /// in `docs.google.com/spreadsheets/d/<id>`. Used to read a type back out
+    /// of a `.webloc` link.
+    public init?(urlSegment segment: String) {
+        let normalized = segment.lowercased()
+        guard let match = Self.allCases.first(where: {
+            $0.urlPath.split(separator: "/").first.map(String.init) == normalized
+        }) else { return nil }
+        self = match
+    }
+
     /// Human-facing product name.
     public var displayName: String {
         switch self {

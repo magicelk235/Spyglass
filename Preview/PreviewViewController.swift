@@ -29,6 +29,13 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         let stub: Stub
         do {
             stub = try StubParser.parse(fileAt: url)
+        } catch StubParseError.notAGoogleDocument(let link) {
+            // A .webloc that points somewhere other than a Google document.
+            // Spyglass owns the type now, so it has to render these too, and a
+            // card naming the destination beats claiming the file is broken.
+            log.notice("Webloc points outside Google Workspace")
+            show(AnyView(LinkCardView(filename: url.lastPathComponent, link: link)))
+            return
         } catch {
             log.error("Parse failed: \(String(describing: error), privacy: .public)")
             show(AnyView(UnparseableView(filename: url.lastPathComponent)))
@@ -112,6 +119,38 @@ private struct UnparseableView: View {
             Text(filename).font(.headline).lineLimit(2)
             Text("Not a readable Google Workspace file")
                 .font(.callout).foregroundStyle(.secondary)
+        }
+        .padding(32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+// MARK: - Non-Google webloc
+
+/// Shown for a `.webloc` that points outside Google Workspace. Spyglass claims
+/// the whole `.webloc` type to catch the ones third-party Drive clients write,
+/// so it inherits every other bookmark on the machine and owes them a preview
+/// that names where they lead.
+private struct LinkCardView: View {
+    let filename: String
+    let link: URL
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "safari")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
+            Text(filename.replacingOccurrences(of: ".webloc", with: ""))
+                .font(.headline).lineLimit(2)
+            if let host = link.host {
+                Text(host).font(.callout).foregroundStyle(.secondary)
+            }
+            Text(link.absoluteString)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .lineLimit(3)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
