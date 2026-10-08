@@ -28,12 +28,12 @@ enum FallbackViews {
         hosting(FileCardView(url: url))
     }
 
-    /// Puts a `TruncationNote` above `content` when `note` is non-nil; the
+    /// Puts a `NoteBanner` above `content` when `note` is non-nil; the
     /// content fills the rest of the space.
     static func withNote(_ content: NSView, note: String?) -> NSView {
         guard let note else { return content }
         let container = NSView()
-        let banner = NSHostingView(rootView: TruncationNote(note))
+        let banner = NSHostingView(rootView: NoteBanner(note))
         for view in [banner, content] {
             view.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview(view)
@@ -55,13 +55,14 @@ enum FallbackViews {
     }
 }
 
-/// Thin banner naming how much of an over-limit file is shown.
-struct TruncationNote: View {
+/// Thin banner above a preview: how much of an over-limit file is shown,
+/// or what was done to the file to show it (a signed profile unwrapped).
+struct NoteBanner: View {
     let text: String
     init(_ text: String) { self.text = text }
 
     var body: some View {
-        Label(text, systemImage: "scissors")
+        Label(text, systemImage: "info.circle")
             .font(.callout)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 12)
