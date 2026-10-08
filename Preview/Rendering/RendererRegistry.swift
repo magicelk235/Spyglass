@@ -35,7 +35,7 @@ enum RendererRegistry {
             return BundleRenderer()
 
         case .notebook:
-            return nil
+            return NotebookRenderer()
 
         case .jsonLines:
             return nil

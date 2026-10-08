@@ -2,8 +2,9 @@ import AppKit
 import SpyglassKit
 
 /// JSON, XML, property lists, YAML and TOML. Minified JSON and XML are
-/// re-indented first; binary property lists are shown as XML. Everything
-/// then goes through the code view.
+/// re-indented first; binary property lists are shown as XML, and signed
+/// ones (configuration profiles) are unwrapped. Everything then goes
+/// through the code view.
 struct StructuredRenderer: PreviewRenderer {
 
     /// Longer text files show their first 2 MB.
@@ -29,10 +30,18 @@ struct StructuredRenderer: PreviewRenderer {
     nonisolated static func prepare(_ url: URL, format: StructuredFormat,
                                     settings: PreviewSettings) throws -> (WebPayload, String?) {
         var notes: [String?] = []
+        var signerNote: String?
         let text: String
         let language: String
         if format == .plist, isBinaryPlist(url) {
             (text, language) = (try binaryPlistXML(url, notes: &notes), "xml")
+        } else if format == .plist, let signed = try signedPropertyList(url) {
+            signerNote = signed.signer.map { "Profile signed by \($0)" } ?? "Signed profile"
+            if signed.text.isCut {
+                notes.append("Formatted text cut at \(PreviewNote.size(formattedLimit))")
+            }
+            text = signed.text.text
+            language = Self.language(for: .plist, text: text)
         } else {
             let file = try FilePrefix.read(url, limit: limit)
             notes.append(file.shownPart(limit: limit))
@@ -47,7 +56,7 @@ struct StructuredRenderer: PreviewRenderer {
         var payload = code.payload
         payload.truncated = notes.contains { $0 != nil }
         notes.append(code.note)
-        return (payload, PreviewNote.joined(notes))
+        return (payload, PreviewNote.joined([signerNote] + notes))
     }
 
     nonisolated static func language(for format: StructuredFormat, text: String) -> String {
@@ -67,6 +76,20 @@ struct StructuredRenderer: PreviewRenderer {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
         defer { try? handle.close() }
         return (try? handle.read(upToCount: 8)) == Data("bplist00".utf8)
+    }
+
+    /// The property list inside CMS signed data, or nil for a file that isn't
+    /// signed data.
+    nonisolated static func signedPropertyList(_ url: URL) throws -> SignedPropertyList? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        guard try handle.read(upToCount: 1) == Data([0x30]) else { return nil }
+        try handle.seek(toOffset: 0)
+        let data = try handle.read(upToCount: binaryPlistLimit + 1) ?? Data()
+        guard data.count <= binaryPlistLimit else {
+            throw RenderError.unsupported("signed property list over \(PreviewNote.size(binaryPlistLimit))")
+        }
+        return try Pretty.signedPropertyList(data, outputLimit: formattedLimit)
     }
 
     nonisolated static func binaryPlistXML(_ url: URL, notes: inout [String?]) throws -> String {

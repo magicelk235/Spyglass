@@ -24,6 +24,8 @@ final class HighlightLanguageTests: XCTestCase {
         }
         // The structured-text and diff renderers pick these themselves.
         ids.formUnion(["json", "xml", "yaml", "toml", "diff", "plaintext"])
+        // Notebook code cells use the kernel's language.
+        ids.formUnion(Notebook.kernelLanguages.values)
         XCTAssertGreaterThan(ids.count, 60)
 
         let exists = try XCTUnwrap(context.evaluateScript("(id) => hljs.getLanguage(id) !== undefined"))

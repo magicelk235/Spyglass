@@ -1,12 +1,13 @@
 // Spyglass web previews. WebRenderer.swift injects the payload as
 // `window.spyglassPayload` before this file runs:
 //
-//   { mode: "code" | "markdown" | "diff", text, language, theme, fontSize,
-//     truncated, highlightLimit, baseURL, files, preamble }
+//   { mode: "code" | "markdown" | "diff" | "notebook", text, language, theme,
+//     fontSize, truncated, highlightLimit, baseURL, files, preamble, notebook }
 //
 // Whatever must be on screen when the preview appears is rendered before the
 // page's load event, because the host waits for that. Highlighting, the rest
-// of a long Markdown file and diagrams follow in short slices afterwards.
+// of a long Markdown file or notebook and diagrams follow in short slices
+// afterwards.
 (function () {
   'use strict';
 
@@ -47,6 +48,15 @@
   const TOC_LIMIT = 400;
   // Code blocks in Markdown longer than this stay plain.
   const BLOCK_HIGHLIGHT_LIMIT = 512 * 1024;
+  // Notebook cells rendered before the preview appears, then per slice.
+  const NOTEBOOK_FIRST_CELLS = 24;
+  const NOTEBOOK_SLICE_CELLS = 32;
+  // Text outputs longer than this many lines start collapsed to their first
+  // OUTPUT_COLLAPSED_LINES lines.
+  const OUTPUT_COLLAPSE_LINES = 400;
+  const OUTPUT_COLLAPSED_LINES = 200;
+  // Output images past this many load only once scrolled near.
+  const EAGER_IMAGES = 8;
 
   // MARK: - Plumbing
 
@@ -412,14 +422,17 @@
     })().catch(error => console.error(error));
   }
 
-  function createMarkdown() {
+  // `jupyter`: Markdown cells in a notebook, which follow Jupyter's math rules.
+  function createMarkdown(options) {
+    const jupyter = Boolean(options && options.jupyter);
     const md = window.markdownit({ html: true, linkify: true });
     md.use(window.markdownitFootnote)
       .use(window.markdownitTaskLists)
       .use(window.markdownitGitHubAlerts)
       .use(window.markdownitDollarmath.dollarmathPlugin, {
-        // As on GitHub and in pandoc, "$5 and $10" is not math.
-        allow_space: false,
+        // As on GitHub and in pandoc, "$5 and $10" is not math. Jupyter
+        // also takes "$ x $", with spaces inside the dollars, as math.
+        allow_space: jupyter,
         allow_digits: false,
         renderer: (tex, options) => renderMath(tex, options.displayMode),
       });
@@ -513,12 +526,13 @@
 
   // Renders one slice into the article and returns its code blocks for
   // highlighting. Diagrams are queued for drawing straight away.
-  function appendMarkdown(article, md, tokens, env, baseURL) {
+  // `attachments` maps a notebook cell's attachment names to data URLs.
+  function appendMarkdown(article, md, tokens, env, baseURL, attachments) {
     const template = document.createElement('template');
     template.innerHTML = md.renderer.render(tokens, md.options, env);
     const fragment = template.content;
     if (containsHTML(tokens)) sanitize(fragment);
-    resolveImages(fragment, baseURL);
+    resolveImages(fragment, baseURL, attachments);
     const code = Array.from(fragment.querySelectorAll('pre > code[data-lang]'));
     const diagrams = Array.from(fragment.querySelectorAll('.mermaid-block'));
     article.append(fragment);
@@ -558,10 +572,10 @@
   // Local images load through the host's spyglass-local: handler, which
   // serves only image files the extension can read. Remote images and any
   // that fail are removed, so there are never broken-image icons.
-  function resolveImages(fragment, baseURL) {
+  function resolveImages(fragment, baseURL, attachments) {
     fragment.querySelectorAll('picture > source, svg image').forEach(node => node.remove());
     for (const image of Array.from(fragment.querySelectorAll('img'))) {
-      const url = localImageURL(image.getAttribute('src'), baseURL);
+      const url = localImageURL(image.getAttribute('src'), baseURL, attachments);
       if (!url) {
         removeImage(image);
         continue;
@@ -571,10 +585,11 @@
     }
   }
 
-  function localImageURL(src, baseURL) {
+  function localImageURL(src, baseURL, attachments) {
     const value = (src || '').trim();
     if (!value) return null;
     if (/^data:image\//i.test(value)) return value;
+    if (/^attachment:/i.test(value)) return attachments ? attachmentURL(attachments, value.slice(11)) : null;
     if (!baseURL) return null;
     let url;
     try {
@@ -584,6 +599,15 @@
     }
     if (url.protocol !== 'file:' || url.host) return null;
     return 'spyglass-local://' + url.pathname;
+  }
+
+  function attachmentURL(attachments, name) {
+    if (attachments.has(name)) return attachments.get(name);
+    try {
+      return attachments.get(decodeURIComponent(name)) || null;
+    } catch (error) {
+      return null;
+    }
   }
 
   function removeImage(image) {
@@ -950,12 +974,385 @@
       + '</td><td class="text"><span class="marker">' + marker + '</span>' + escapeHTML(line.text) + '</td></tr>';
   }
 
+  // MARK: - Notebook
+
+  function renderNotebook(p) {
+    const notebook = p.notebook || {};
+    const cells = notebook.cells || [];
+    const view = element('div', 'nb-view');
+    document.body.append(view);
+    if (!cells.length) {
+      view.append(element('div', 'empty', 'Empty notebook'));
+      return;
+    }
+    view.style.setProperty('--prompt-chars', String(promptWidth(cells)));
+    const context = {
+      md: createMarkdown({ jupyter: true }),
+      baseURL: p.baseURL,
+      language: notebook.language || null,
+      // Code blocks waiting for syntax colors.
+      pending: [],
+      // Code cells rendered before their language was guessed.
+      unguessed: [],
+      guessed: Boolean(notebook.language),
+      images: 0,
+    };
+    const first = Math.min(cells.length, NOTEBOOK_FIRST_CELLS);
+    for (let i = 0; i < first; i++) view.append(renderCell(cells[i], context));
+    context.pending = highlightReadyBlocks(context.pending, 30);
+
+    (async () => {
+      await pageLoaded;
+      if (!context.guessed) {
+        context.language = guessCellLanguage(cells);
+        context.guessed = true;
+        if (context.language) {
+          context.unguessed.forEach(code => { code.dataset.lang = context.language; });
+          context.pending = context.pending.concat(context.unguessed);
+        }
+        context.unguessed = [];
+      }
+      // Kernels such as Julia or Scala need the extra grammars.
+      if (context.language) await ensureLanguage(context.language);
+      context.pending = highlightReadyBlocks(context.pending, 16);
+      for (let start = first; start < cells.length; start += NOTEBOOK_SLICE_CELLS) {
+        const fragment = document.createDocumentFragment();
+        const end = Math.min(cells.length, start + NOTEBOOK_SLICE_CELLS);
+        for (let i = start; i < end; i++) fragment.append(renderCell(cells[i], context));
+        view.append(fragment);
+        context.pending = highlightReadyBlocks(context.pending, 8);
+        await nextTask();
+      }
+      await highlightBlocks(context.pending);
+    })().catch(error => console.error(error));
+  }
+
+  // Characters in the widest prompt: "In [" or "Out[", the number, "]:".
+  function promptWidth(cells) {
+    let largest = 0;
+    for (const cell of cells) {
+      if (cell.count > largest) largest = cell.count;
+      for (const output of cell.outputs || []) {
+        if (output.count > largest) largest = output.count;
+      }
+    }
+    return String(largest).length + 6;
+  }
+
+  // For notebooks that don't name their kernel's language.
+  function guessCellLanguage(cells) {
+    let sample = '';
+    for (const cell of cells) {
+      if (sample.length >= 16 * 1024) break;
+      if (cell.type === 'code' && cell.source) sample += cell.source + '\n';
+    }
+    return sample.trim() ? detectLanguage(sample.slice(0, 16 * 1024)) : null;
+  }
+
+  // One cell; a cell that fails to render shows its source as plain text.
+  function renderCell(cell, context) {
+    try {
+      switch (cell.type) {
+        case 'markdown': return renderMarkdownCell(cell, context);
+        case 'code': return renderCodeCell(cell, context);
+        default: return renderRawCell(cell);
+      }
+    } catch (error) {
+      console.error(error);
+      return renderRawCell(cell);
+    }
+  }
+
+  function renderMarkdownCell(cell, context) {
+    const row = element('div', 'nb-cell nb-markdown');
+    const body = element('div', 'markdown-body');
+    row.append(element('div', 'nb-prompt'), body);
+    const source = normalizeNewlines(cell.source || '');
+    if (!source.trim()) return row;
+    const attachments = new Map((cell.attachments || []).map(attachment => [attachment.name, attachment.url]));
+    const env = {};
+    const tokens = context.md.parse(source, env);
+    context.pending = context.pending.concat(appendMarkdown(body, context.md, tokens, env, context.baseURL, attachments));
+    return row;
+  }
+
+  function renderCodeCell(cell, context) {
+    const row = element('div', 'nb-cell nb-code');
+    const input = element('div', 'nb-input');
+    const prompt = element('div', 'nb-prompt', 'In [' + (cell.count != null ? cell.count : ' ') + ']:');
+    const code = element('code', null, normalizeNewlines(cell.source || ''));
+    const source = element('pre', 'nb-source');
+    source.append(code);
+    input.append(prompt, source);
+    row.append(input);
+    if (context.language) {
+      code.dataset.lang = context.language;
+      context.pending.push(code);
+    } else if (!context.guessed) {
+      context.unguessed.push(code);
+    }
+
+    const outputs = cell.outputs || [];
+    if (outputs.length) {
+      const area = element('div', 'nb-outputs');
+      for (const output of outputs) {
+        const node = renderOutput(output, context);
+        if (node) area.append(node);
+      }
+      row.append(area);
+    }
+    return row;
+  }
+
+  function renderRawCell(cell) {
+    const row = element('div', 'nb-cell nb-raw');
+    row.append(element('div', 'nb-prompt'), element('pre', 'nb-raw-source', normalizeNewlines(cell.source || '')));
+    return row;
+  }
+
+  // One output: the host has already picked the representation to show.
+  function renderOutput(output, context) {
+    const row = element('div', 'nb-output');
+    const prompt = element('div', 'nb-prompt', output.count != null ? 'Out[' + output.count + ']:' : '');
+    const body = element('div', 'nb-output-body');
+    row.append(prompt, body);
+    switch (output.type) {
+      case 'stream':
+        if (output.name === 'stderr') body.classList.add('nb-stderr');
+        appendTerminalText(body, output.text);
+        break;
+      case 'text':
+        appendTerminalText(body, output.text);
+        break;
+      case 'error':
+        body.classList.add('nb-error');
+        appendTerminalText(body, output.text);
+        break;
+      case 'image':
+        body.append(outputImage(output, context));
+        break;
+      case 'omitted':
+        body.append(element('div', 'nb-omitted', 'Image not shown (' + formatSize(output.size) + ')'));
+        break;
+      case 'html':
+        appendOutputHTML(body, output.html || '', context);
+        break;
+      case 'markdown':
+        appendOutputMarkdown(body, output.text || '', context);
+        break;
+      case 'latex':
+        appendOutputLatex(body, output.text || '', context);
+        break;
+      default:
+        return null;
+    }
+    return row;
+  }
+
+  function outputImage(output, context) {
+    const image = document.createElement('img');
+    image.alt = '';
+    image.decoding = 'async';
+    context.images += 1;
+    if (context.images > EAGER_IMAGES) image.loading = 'lazy';
+    if (output.width > 0) image.width = output.width;
+    if (output.height > 0) image.height = output.height;
+    if (output.background) image.dataset.background = output.background;
+    image.addEventListener('error', () => {
+      image.replaceWith(element('div', 'nb-omitted', 'Image can’t be shown'));
+    }, { once: true });
+    image.src = 'data:' + output.mime + ';base64,' + output.data;
+    return image;
+  }
+
+  // HTML outputs get the same treatment as raw HTML in Markdown: no
+  // scripts, frames, styles or event handlers, and no remote images.
+  // Interactive plots and widgets are mostly script, so little may be left.
+  function appendOutputHTML(body, html, context) {
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const fragment = template.content;
+    sanitize(fragment);
+    resolveImages(fragment, context.baseURL);
+    if (!fragment.textContent.trim() && !fragment.querySelector('img, svg, math, table, hr, input')) {
+      body.append(element('div', 'nb-omitted', 'Interactive output not shown'));
+      return;
+    }
+    body.classList.add('nb-html');
+    body.append(fragment);
+  }
+
+  function appendOutputMarkdown(body, text, context) {
+    body.classList.add('markdown-body');
+    const env = {};
+    const tokens = context.md.parse(normalizeNewlines(text), env);
+    context.pending = context.pending.concat(appendMarkdown(body, context.md, tokens, env, context.baseURL));
+  }
+
+  // Jupyter hands LaTeX output to MathJax delimiters and all; KaTeX wants
+  // the math alone. Text with math inside it goes through Markdown.
+  function appendOutputLatex(body, text, context) {
+    const source = text.trim();
+    const match = /^(?:\$\$([\s\S]+)\$\$|\\\[([\s\S]+)\\\]|\$([\s\S]+)\$|\\\(([\s\S]+)\\\))$/.exec(source);
+    const math = match ? match[1] || match[2] || match[3] || match[4] : source;
+    if (math.includes('$')) {
+      appendOutputMarkdown(body, source, context);
+      return;
+    }
+    body.classList.add('nb-latex');
+    body.innerHTML = renderMath(math, true);
+  }
+
+  // Streams, plain-text results and tracebacks, as the styled runs the host
+  // made of their ANSI codes. Long text starts collapsed.
+  function appendTerminalText(body, runs) {
+    runs = runs || [];
+    const pre = element('pre', 'nb-text');
+    body.append(pre);
+    const total = countLines(runs);
+    if (total <= OUTPUT_COLLAPSE_LINES) {
+      pre.innerHTML = runsHTML(runs, Infinity);
+      return;
+    }
+    const toggle = element('button', 'nb-toggle');
+    toggle.type = 'button';
+    let expanded = false;
+    const show = () => {
+      pre.innerHTML = runsHTML(runs, expanded ? Infinity : OUTPUT_COLLAPSED_LINES);
+      pre.classList.toggle('collapsed', !expanded);
+      toggle.textContent = expanded
+        ? 'Show less'
+        : 'Show ' + (total - OUTPUT_COLLAPSED_LINES).toLocaleString() + ' more lines';
+    };
+    toggle.addEventListener('click', () => {
+      expanded = !expanded;
+      show();
+      if (!expanded && body.getBoundingClientRect().top < 0) body.scrollIntoView({ block: 'start' });
+    });
+    show();
+    body.append(toggle);
+  }
+
+  function countLines(runs) {
+    let lines = 0;
+    let last = '';
+    for (const run of runs) {
+      const text = run.text;
+      for (let index = text.indexOf('\n'); index !== -1; index = text.indexOf('\n', index + 1)) lines += 1;
+      if (text) last = text;
+    }
+    return last && !last.endsWith('\n') ? lines + 1 : lines;
+  }
+
+  // HTML for the runs, up to the end of line `maxLines`.
+  function runsHTML(runs, maxLines) {
+    const parts = [];
+    let lines = 0;
+    for (const run of runs) {
+      let text = run.text;
+      let full = false;
+      if (maxLines !== Infinity) {
+        for (let index = text.indexOf('\n'); index !== -1; index = text.indexOf('\n', index + 1)) {
+          lines += 1;
+          if (lines >= maxLines) {
+            text = text.slice(0, index);
+            full = true;
+            break;
+          }
+        }
+      }
+      parts.push(runHTML(text, run));
+      if (full) break;
+    }
+    return parts.join('');
+  }
+
+  // The 16 themed colors are classes. Any other color comes from the
+  // 256-color palette or is a true color, picked for one kind of terminal:
+  // IPython's traceback colors assume a light one. Those get a variant for
+  // each theme with enough contrast to read, and backgrounds become tints
+  // like the themed ones.
+  function runHTML(text, run) {
+    const escaped = escapeHTML(text);
+    const classes = [];
+    let style = '';
+    if (Number.isInteger(run.fg) && run.fg >= 0 && run.fg < 16) {
+      classes.push('ansi-fg-' + run.fg);
+    } else if (/^#[0-9a-f]{6}$/.test(run.fg)) {
+      classes.push('ansi-rgb');
+      style += readableColorStyle(run.fg);
+    }
+    if (Number.isInteger(run.bg) && run.bg >= 0 && run.bg < 16) {
+      classes.push('ansi-bg-' + run.bg);
+    } else if (/^#[0-9a-f]{6}$/.test(run.bg)) {
+      style += 'background-color:color-mix(in srgb,' + run.bg + ' 35%,transparent);';
+    }
+    if (run.bold) classes.push('ansi-bold');
+    if (run.faint) classes.push('ansi-faint');
+    if (run.italic) classes.push('ansi-italic');
+    if (run.underline) classes.push('ansi-underline');
+    if (!classes.length && !style) return escaped;
+    return '<span' + (classes.length ? ' class="' + classes.join(' ') + '"' : '')
+      + (style ? ' style="' + style + '"' : '') + '>' + escaped + '</span>';
+  }
+
+  // In both themes, text has the least contrast on the error tint.
+  const LIGHT_TEXT_BACKGROUND = [253, 236, 236];
+  const DARK_TEXT_BACKGROUND = [61, 37, 36];
+  const readableColors = new Map();
+
+  function readableColorStyle(hex) {
+    let style = readableColors.get(hex);
+    if (!style) {
+      const rgb = [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16));
+      style = '--rgb-light:' + hexColor(withContrast(rgb, LIGHT_TEXT_BACKGROUND, 0))
+        + ';--rgb-dark:' + hexColor(withContrast(rgb, DARK_TEXT_BACKGROUND, 255)) + ';';
+      readableColors.set(hex, style);
+    }
+    return style;
+  }
+
+  // Moves the color toward black (0) or white (255) until its contrast
+  // ratio with the background reaches 4.5, the WCAG minimum for text.
+  function withContrast(rgb, background, toward) {
+    for (let step = 0; step < 20; step++) {
+      const mixed = rgb.map(value => Math.round(value + (toward - value) * step / 20));
+      if (contrastRatio(mixed, background) >= 4.5) return mixed;
+    }
+    return [toward, toward, toward];
+  }
+
+  function contrastRatio(a, b) {
+    const first = relativeLuminance(a);
+    const second = relativeLuminance(b);
+    return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+  }
+
+  function relativeLuminance(rgb) {
+    const [red, green, blue] = rgb.map(value => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+
+  function hexColor(rgb) {
+    return '#' + rgb.map(value => value.toString(16).padStart(2, '0')).join('');
+  }
+
+  function formatSize(bytes) {
+    if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + ' MB';
+    if (bytes >= 1e3) return Math.round(bytes / 1e3) + ' KB';
+    return bytes + ' bytes';
+  }
+
   // MARK: - Start
 
-  const renderers = { code: renderCode, markdown: renderMarkdown, diff: renderDiff };
+  const renderers = { code: renderCode, markdown: renderMarkdown, diff: renderDiff, notebook: renderNotebook };
   const render = renderers[payload.mode] || renderCode;
-  const needed = payload.mode === 'markdown' ? MARKDOWN_SCRIPTS : [];
-  if (payload.mode === 'markdown') loadStyle('vendor/katex/katex.min.css');
+  const usesMarkdown = payload.mode === 'markdown' || payload.mode === 'notebook';
+  const needed = usesMarkdown ? MARKDOWN_SCRIPTS : [];
+  if (usesMarkdown) loadStyle('vendor/katex/katex.min.css');
   Promise.all([domReady].concat(needed.map(loadScript)))
     .then(() => render(payload))
     .catch(error => domReady.then(() => showPlain(payload.text, error)));
