@@ -38,16 +38,16 @@ enum RendererRegistry {
             return NotebookRenderer()
 
         case .jsonLines:
-            return nil
+            return JSONLinesRenderer()
 
         case .torrent:
-            return nil
+            return TorrentRenderer()
 
         case .binary:
             return BinaryRenderer()
 
         case .folder:
-            return nil
+            return FolderRenderer()
         }
     }
 }

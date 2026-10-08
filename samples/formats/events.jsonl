@@ -1,0 +1,22 @@
+{"ts":"2026-10-08T09:00:01Z","level":"info","event":"app.launch","user":{"id":101,"name":"Ada"},"duration_ms":412,"ok":true,"tags":["cold-start"]}
+{"ts":"2026-10-08T09:00:03Z","level":"info","event":"preview.open","user":{"id":101,"name":"Ada"},"file":"README.md","duration_ms":38.5,"ok":true}
+{"ts":"2026-10-08T09:00:04Z","level":"debug","event":"cache.hit","user":{"id":101,"name":"Ada"},"file":"README.md","duration_ms":0.8,"ok":true}
+{"ts":"2026-10-08T09:01:17Z","level":"warn","event":"preview.slow","user":{"id":204,"name":"Linus"},"file":"dump.sql.gz","duration_ms":1840,"ok":true,"tags":["archive","gzip"]}
+{"ts":"2026-10-08T09:01:19Z","level":"error","event":"preview.failed","user":{"id":204,"name":"Linus"},"file":"broken.zip","duration_ms":12,"ok":false,"error":"End of central directory not found"}
+
+{"ts":"2026-10-08T09:02:00Z","level":"info","event":"settings.change","user":{"id":101,"name":"Ada"},"ok":true,"changes":{"theme":"dark","codeFontSize":13}}
+{"ts":"2026-10-08T09:02:41Z","level":"info","event":"preview.open","user":{"id":317,"name":"Grace"},"file":"library.sqlite","duration_ms":96,"ok":true}
+{"ts":"2026-10-08T09:02:42Z","level":"info","event":"preview.open","user":{"id":317,"name":"Grace"},"file":"people.tsv","duration_ms":21,"ok":true}
+{"ts":"2026-10-08T09:03:05Z","level":"debug","event":"cache.miss","user":{"id":317,"name":"Grace"},"file":"Quarterly Report.gsheet","duration_ms":3.2,"ok":true,"error":null}
+{"ts":"2026-10-08T09:03:06Z","level":"info","event":"drive.fetch","user":{"id":317,"name":"Grace"},"file":"Quarterly Report.gsheet","duration_ms":1290,"ok":true,"tags":["drive","pdf"],"bytes":482113}
+{"ts":"2026-10-08T09:04:12Z","level":"info","event":"preview.open","user":{"id":101,"name":"Ada"},"file":"change.patch","duration_ms":44,"ok":true}
+{"ts":"2026-10-08T09:04:13Z","level":"info","event":"preview.open","user":{"id":101,"name":"Ada"},"file":"project.tar.bz2","duration_ms":67,"ok":true,"tags":["archive","bzip2"]}
+{"ts":"2026-10-08T09:05:30Z","level":"warn","event":"license.check", "user":{"id":412,"name":"Edsger"},"ok":false,"error":"Network unavailable"
+{"ts":"2026-10-08T09:05:31Z","level":"info","event":"license.check","user":{"id":412,"name":"Edsger"},"ok":true,"duration_ms":203}
+{"ts":"2026-10-08T09:06:02Z","level":"info","event":"preview.open","user":{"id":412,"name":"Edsger"},"file":"Sample.ipa","duration_ms":151,"ok":true,"tags":["bundle"]}
+{"ts":"2026-10-08T09:06:40Z","level":"info","event":"preview.open","user":{"id":204,"name":"Linus"},"file":"main.swift","duration_ms":29,"ok":true}
+{"ts":"2026-10-08T09:07:15Z","level":"debug","event":"web.ready","user":{"id":204,"name":"Linus"},"file":"main.swift","duration_ms":17.25,"ok":true}
+{"ts":"2026-10-08T09:08:00Z","level":"info","event":"preview.open","user":{"id":523,"name":"Barbara"},"file":"notes – café ☕.md","duration_ms":55,"ok":true}
+{"ts":"2026-10-08T09:08:44Z","level":"info","event":"preview.open","user":{"id":523,"name":"Barbara"},"file":"events.jsonl","duration_ms":33,"ok":true,"tags":["table"]}
+{"ts":"2026-10-08T09:09:10Z","level":"error","event":"preview.failed","user":{"id":523,"name":"Barbara"},"file":"huge.tsv","duration_ms":2000,"ok":false,"error":"Renderer exceeded its time budget"}
+{"ts":"2026-10-08T09:10:00Z","level":"info","event":"app.quit","user":{"id":101,"name":"Ada"},"duration_ms":8,"ok":true}

@@ -8,20 +8,24 @@ enum GridCell: Sendable {
     case number(String, Double)
     case null
     case blob(bytes: Int)
+    /// A value that couldn't be read, such as a line that isn't valid JSON.
+    case error(String)
 
-    /// SQLite's own order across types: NULL, numbers, text, blobs.
+    /// SQLite's own order across types: NULL, numbers, text, blobs. Errors
+    /// go last.
     fileprivate var rank: Int {
         switch self {
         case .null: return 0
         case .number: return 1
         case .text: return 2
         case .blob: return 3
+        case .error: return 4
         }
     }
 
     fileprivate var displayText: String {
         switch self {
-        case .text(let text), .number(let text, _): return text
+        case .text(let text), .number(let text, _), .error(let text): return text
         case .null: return "NULL"
         case .blob(let bytes): return "<\(bytes) bytes>"
         }
@@ -31,7 +35,7 @@ enum GridCell: Sendable {
         switch (a, b) {
         case let (.number(_, x), .number(_, y)):
             return x < y ? .orderedAscending : (x > y ? .orderedDescending : .orderedSame)
-        case let (.text(x), .text(y)):
+        case let (.text(x), .text(y)), let (.error(x), .error(y)):
             return x.localizedStandardCompare(y)
         case let (.blob(x), .blob(y)):
             return x < y ? .orderedAscending : (x > y ? .orderedDescending : .orderedSame)
@@ -92,11 +96,14 @@ struct GridData: Sendable {
                                                        omittingEmptySubsequences: false).first ?? ""
                 let font: CTFont?
                 switch cell {
-                case .text: font = body
+                case .text, .null, .error: font = body
                 case .number, .blob: font = mono
-                case .null: font = body
                 }
-                widest = max(widest, width(firstLine, font) + 2 * GridStyle.cellPadding + 4)
+                var needed = width(firstLine, font) + 2 * GridStyle.cellPadding + 4
+                // One bad row shouldn't stretch a column of short values;
+                // the full message is in the tooltip.
+                if case .error = cell { needed = min(needed, 220) }
+                widest = max(widest, needed)
             }
             return min(max(widest.rounded(.up), 48), 360)
         }
@@ -227,7 +234,13 @@ final class DataGridView: NSScrollView, NSTableViewDataSource, NSTableViewDelega
             field.font = monoFont
             field.textColor = .secondaryLabelColor
             field.alignment = .natural
+        case .error:
+            field.font = bodyFont
+            field.textColor = .systemRed
+            field.alignment = .natural
         }
+        // Error text is often wider than its column.
+        if case .error(let text) = cell { field.toolTip = text } else { field.toolTip = nil }
     }
 }
 
