@@ -48,13 +48,17 @@ public struct PropertyRow: Equatable, Sendable {
     }
 }
 
-/// What the Security framework reports about a bundle's code signature.
+/// What the Security framework reports about a bundle's or binary's code
+/// signature.
 public struct CodeSignature: Equatable, Sendable {
     public var identifier: String?
     public var teamIdentifier: String?
     /// Signing certificate first, root last.
     public var authorities: [String]
     public var isAdHoc: Bool
+    /// The ad hoc signature the linker gives every arm64 binary it writes.
+    public var isLinkerSigned = false
+    public var isHardenedRuntime = false
     /// The secure timestamp when there is one, else the time the signer claims.
     public var signedAt: Date?
     public var entitlements: [PropertyRow]
@@ -64,8 +68,9 @@ public struct CodeSignature: Equatable, Sendable {
         case signed(CodeSignature)
     }
 
-    /// nil when the code can't be examined at all.
-    static func read(at url: URL) -> Status? {
+    /// nil when the code can't be examined at all. For a universal binary
+    /// this is the signature of the slice this Mac would run.
+    public static func read(at url: URL) -> Status? {
         var staticCode: SecStaticCode?
         let created = SecStaticCodeCreateWithPath(url as CFURL, [], &staticCode)
         if created == errSecCSUnsigned { return .unsigned }
@@ -85,6 +90,8 @@ public struct CodeSignature: Equatable, Sendable {
             teamIdentifier: values[kSecCodeInfoTeamIdentifier as String] as? String,
             authorities: certificates.compactMap { SecCertificateCopySubjectSummary($0) as String? },
             isAdHoc: signatureFlags & SecCodeSignatureFlags.adhoc.rawValue != 0,
+            isLinkerSigned: signatureFlags & SecCodeSignatureFlags.linkerSigned.rawValue != 0,
+            isHardenedRuntime: signatureFlags & SecCodeSignatureFlags.runtime.rawValue != 0,
             signedAt: values[kSecCodeInfoTimestamp as String] as? Date ?? values[kSecCodeInfoTime as String] as? Date,
             entitlements: PropertyRow.rows(entitlements)))
     }
@@ -219,6 +226,73 @@ public struct BundleInfo: Sendable {
         return info
     }
 
+    // MARK: - .framework
+
+    public static func readFramework(at url: URL) throws -> FrameworkInfo {
+        let manager = FileManager.default
+        var isDirectory: ObjCBool = false
+        guard manager.fileExists(atPath: url.path, isDirectory: &isDirectory), isDirectory.boolValue else {
+            throw ArchiveError.unrecognized("\(url.lastPathComponent) isn't a framework bundle")
+        }
+        // macOS frameworks keep each version under Versions/ with a Current
+        // link; iOS-style (shallow) frameworks keep everything at the top.
+        let versionsFolder = url.appendingPathComponent("Versions", isDirectory: true)
+        let current = versionsFolder.appendingPathComponent("Current", isDirectory: true)
+        let isDeep = manager.fileExists(atPath: current.path)
+        let root = isDeep ? current : url
+        let plist = [root.appendingPathComponent("Resources/Info.plist"),
+                     url.appendingPathComponent("Resources/Info.plist"),
+                     url.appendingPathComponent("Info.plist")]
+            .lazy
+            .compactMap { try? Data(contentsOf: $0, options: .mappedIfSafe) }
+            .first { $0.count <= plistLimit }
+            .flatMap { try? PropertyListSerialization.propertyList(from: $0, format: nil) } as? [String: Any] ?? [:]
+
+        let fallbackName = url.deletingPathExtension().lastPathComponent
+        let platform = (plist["CFBundleSupportedPlatforms"] as? [String])?.first.flatMap { platformNames[$0] }
+            ?? (isDeep ? "macOS" : "iOS")
+        var bundle = BundleInfo(plist: plist, fallbackName: fallbackName, platform: platform)
+
+        var versions: [String] = []
+        var currentVersion: String?
+        if isDeep {
+            let names = (try? manager.contentsOfDirectory(atPath: versionsFolder.path)) ?? []
+            versions = names.filter { $0 != "Current" && !$0.hasPrefix(".") }.sorted()
+            currentVersion = (try? manager.destinationOfSymbolicLink(atPath: current.path))
+                .map { ($0 as NSString).lastPathComponent }
+        }
+        let nested = (try? manager.contentsOfDirectory(atPath: root.appendingPathComponent("Frameworks").path)) ?? []
+        let frameworks = nested.filter { $0.hasSuffix(".framework") }
+            .map { ($0 as NSString).deletingPathExtension }
+            .sorted()
+
+        let executable = (plist["CFBundleExecutable"] as? String).flatMap { $0.contains("/") || $0.isEmpty ? nil : $0 }
+            ?? fallbackName
+        let binaryURL = root.appendingPathComponent(executable)
+        let binary: FrameworkInfo.Binary
+        if manager.fileExists(atPath: binaryURL.path) {
+            do {
+                let info = try MachOInfo.read(at: binaryURL)
+                binary = .machO(info)
+                bundle.architectures = info.slices.map(\.architecture)
+            } catch {
+                binary = .unreadable(String(describing: error))
+            }
+        } else {
+            binary = .missing(name: executable)
+        }
+        bundle.signing = CodeSignature.read(at: url)
+        return FrameworkInfo(bundle: bundle, versions: versions, currentVersion: currentVersion,
+                             frameworks: frameworks, binary: binary)
+    }
+
+    /// `CFBundleSupportedPlatforms` values.
+    private static let platformNames = [
+        "MacOSX": "macOS", "iPhoneOS": "iOS", "iPhoneSimulator": "iOS", "AppleTVOS": "tvOS",
+        "AppleTVSimulator": "tvOS", "WatchOS": "watchOS", "WatchSimulator": "watchOS",
+        "XROS": "visionOS", "XRSimulator": "visionOS", "DriverKit": "DriverKit",
+    ]
+
     // MARK: - .ipa
 
     public static func readIPA(at url: URL) throws -> BundleInfo {
@@ -308,4 +382,25 @@ public struct BundleInfo: Sendable {
     }
 
     private static let deviceFamilies = [1: "iPhone", 2: "iPad", 3: "Apple TV", 4: "Apple Watch", 7: "Apple Vision"]
+}
+
+/// What a `.framework` bundle holds: its Info.plist fields (as a
+/// `BundleInfo`), the versions it carries, and its binary's headers.
+public struct FrameworkInfo: Sendable {
+    public enum Binary: Sendable {
+        case machO(MachOInfo)
+        /// The binary isn't on disk. macOS's own frameworks keep theirs in
+        /// the dyld shared cache.
+        case missing(name: String)
+        case unreadable(String)
+    }
+
+    public var bundle: BundleInfo
+    /// Folder names under `Versions/`, sorted; empty for a shallow framework.
+    public var versions: [String]
+    /// The version `Versions/Current` points to.
+    public var currentVersion: String?
+    /// Frameworks nested inside an umbrella framework, by name.
+    public var frameworks: [String]
+    public var binary: Binary
 }

@@ -2,9 +2,10 @@ import AppKit
 import SwiftUI
 import SpyglassKit
 
-/// `.app`, `.ipa`, `.pkg`, `.dmg`: an info card with the icon, then
-/// General, Signing, Provisioning, Entitlements and Contents sections for
-/// whatever the file reveals. Rows that can't be read are left out.
+/// `.app`, `.ipa`, `.pkg`, `.dmg`, `.framework`: an info card with the
+/// icon, then General, Signing, Provisioning, Entitlements and Contents
+/// sections for whatever the file reveals. Rows that can't be read are
+/// left out.
 @MainActor
 struct BundleRenderer: PreviewRenderer {
 
@@ -31,19 +32,37 @@ struct BundleCard: Sendable {
         enum Style: Sendable {
             /// Label and value columns.
             case table
-            /// Key/value pairs from a property list, monospaced, collapsible.
+            /// Key/value pairs from a property list, or a list of paths:
+            /// monospaced, collapsible. A row with an empty value shows
+            /// only its label.
             case properties
         }
 
         var title: String
         var rows: [Row]
         var style: Style = .table
+        /// A long `.properties` list that opens folded.
+        var startsCollapsed = false
+    }
+
+    /// Sections that differ per variant (a universal binary's
+    /// architectures), shown one at a time under a picker.
+    struct Variant: Sendable {
+        var title: String
+        var sections: [Section]
     }
 
     var title: String
     var subtitle: String
     var sections: [Section] = []
+    var variants: [Variant] = []
+    /// Names what the variants are ("Architecture").
+    var variantLabel = ""
+    /// The variant shown first.
+    var selectedVariant = 0
     var contents: ArchiveTree?
+    /// Heading over `contents`; "Contents (count)" when nil.
+    var contentsTitle: String?
     var contentsNote: String?
     var iconData: Data?
 
@@ -53,7 +72,7 @@ struct BundleCard: Sendable {
         case .ipa: return ipa(try BundleInfo.readIPA(at: url))
         case .pkg: return package(try PackageInfo.read(at: url), url: url)
         case .dmg: return diskImage(try DiskImageInfo.read(at: url), url: url)
-        case .framework: throw RenderError.unsupported("frameworks are not supported yet")
+        case .framework: return framework(try BundleInfo.readFramework(at: url), url: url)
         }
     }
 
@@ -104,26 +123,79 @@ struct BundleCard: Sendable {
         ]))
     }
 
-    private static func signingSection(_ status: CodeSignature.Status) -> Section {
+    static func signingSection(_ status: CodeSignature.Status) -> Section {
         guard case .signed(let signature) = status else {
             return Section(title: "Signing", rows: [Row(label: "Signature", value: "Not signed")])
         }
-        let signer: (String, String?) = signature.isAdHoc
-            ? ("Signature", "Ad hoc, no certificate")
-            : ("Signed by", signature.authorities.first)
+        let signer: (String, String?)
+        if signature.isAdHoc {
+            signer = ("Signature", signature.isLinkerSigned ? "Ad hoc, added by the linker" : "Ad hoc, no certificate")
+        } else {
+            signer = ("Signed by", signature.authorities.first)
+        }
         return Section(title: "Signing", rows: rows([
             signer,
             ("Team ID", signature.teamIdentifier),
             ("Identifier", signature.identifier),
             ("Certificate chain", signature.authorities.count > 1 ? signature.authorities.joined(separator: "\n") : nil),
+            ("Hardened runtime", signature.isHardenedRuntime ? "Yes" : "No"),
             ("Signed", signature.signedAt.map(date)),
         ]))
     }
 
-    private static func entitlements(_ rows: [PropertyRow]) -> Section {
+    static func entitlements(_ rows: [PropertyRow]) -> Section {
         Section(title: "Entitlements (\(rows.count))",
                 rows: rows.map { Row(label: $0.key, value: $0.value) },
                 style: .properties)
+    }
+
+    // MARK: - Frameworks
+
+    private static func framework(_ framework: FrameworkInfo, url: URL) -> BundleCard {
+        let info = framework.bundle
+        let title = url.deletingPathExtension().lastPathComponent
+        var card = BundleCard(title: title, subtitle: subtitle("\(info.platform) framework", info))
+        let versions = framework.versions.map { $0 == framework.currentVersion ? "\($0) (current)" : $0 }
+        card.sections.append(Section(title: "General", rows: rows([
+            ("Name", info.name == title ? nil : info.name),
+            ("Bundle ID", info.bundleIdentifier),
+            ("Version", info.version),
+            ("Build", info.build),
+            ("Minimum \(info.platform)", info.minimumSystem),
+            ("Versions", list(versions, separator: ", ")),
+            ("Frameworks inside", list(framework.frameworks, separator: ", ")),
+            ("Copyright", info.copyright),
+        ])))
+
+        switch framework.binary {
+        case .machO(let binary):
+            // Every slice carries the same install name and libraries.
+            let slice = binary.slices[0]
+            card.sections.append(Section(title: "Binary", rows: rows([
+                ("Architectures", list(binary.slices.map(\.architecture), separator: ", ")),
+                ("Install name", slice.identity?.path),
+                ("Current version", slice.identity?.currentVersion),
+                ("Compatibility version", slice.identity?.compatibilityVersion),
+                ("Minimum OS", list(slice.buildVersions.map { "\($0.platform) \($0.minimumOS)" }, separator: ", ")),
+                ("SDK", list(slice.buildVersions.compactMap { version in version.sdk.map { "\(version.platform) \($0)" } },
+                             separator: ", ")),
+                ("Linked libraries", "\(slice.libraries.count)"),
+            ])))
+        case .missing(let name):
+            // macOS's own frameworks ship their code in the dyld shared cache.
+            let row = url.path.hasPrefix("/System/")
+                ? Row(label: "Location", value: "In the dyld shared cache, not on disk")
+                : Row(label: "File", value: "\(name) is missing", isWarning: true)
+            card.sections.append(Section(title: "Binary", rows: [row]))
+        case .unreadable(let reason):
+            card.sections.append(Section(title: "Binary", rows: [Row(label: "File", value: reason, isWarning: true)]))
+        }
+
+        if let signing = info.signing { card.sections.append(signingSection(signing)) }
+        if case .signed(let signature) = info.signing, !signature.entitlements.isEmpty {
+            card.sections.append(entitlements(signature.entitlements))
+        }
+        return card
     }
 
     private static func provisioning(_ profile: ProvisioningProfile) -> Section {
@@ -233,18 +305,18 @@ struct BundleCard: Sendable {
 
     // MARK: - Formatting
 
-    private static func rows(_ pairs: [(String, String?)]) -> [Row] {
+    static func rows(_ pairs: [(String, String?)]) -> [Row] {
         pairs.compactMap { label, value in
             guard let value, !value.isEmpty else { return nil }
             return Row(label: label, value: value)
         }
     }
 
-    private static func list(_ items: [String], separator: String) -> String? {
+    static func list(_ items: [String], separator: String) -> String? {
         items.isEmpty ? nil : items.joined(separator: separator)
     }
 
-    private static func bytes(_ value: UInt64) -> String {
+    static func bytes(_ value: UInt64) -> String {
         byteCountText(value)
     }
 
@@ -281,9 +353,13 @@ struct BundleCardView: View {
                 ForEach(Array(card.sections.enumerated()), id: \.offset) { _, section in
                     BundleSectionView(section: section)
                 }
+                if !card.variants.isEmpty {
+                    VariantSectionsView(label: card.variantLabel, variants: card.variants, selection: card.selectedVariant)
+                }
                 if let contents, let tree = card.contents {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Contents (\((tree.fileCount + tree.folderCount).formatted()))").font(.headline)
+                        Text(card.contentsTitle ?? "Contents (\((tree.fileCount + tree.folderCount).formatted()))")
+                            .font(.headline)
                         if let note = card.contentsNote {
                             Text(note).font(.callout).foregroundStyle(.secondary)
                         }
@@ -301,9 +377,46 @@ struct BundleCardView: View {
     }
 }
 
+/// One variant's sections at a time, chosen with a segmented picker.
+private struct VariantSectionsView: View {
+    let label: String
+    let variants: [BundleCard.Variant]
+    @State private var selection: Int
+
+    init(label: String, variants: [BundleCard.Variant], selection: Int) {
+        self.label = label
+        self.variants = variants
+        _selection = State(initialValue: variants.indices.contains(selection) ? selection : 0)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) {
+                Text(label).font(.headline)
+                Picker(label, selection: $selection) {
+                    ForEach(variants.indices, id: \.self) { index in
+                        Text(variants[index].title).tag(index)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+            }
+            ForEach(Array(variants[min(selection, variants.count - 1)].sections.enumerated()), id: \.offset) { _, section in
+                BundleSectionView(section: section)
+            }
+        }
+    }
+}
+
 private struct BundleSectionView: View {
     let section: BundleCard.Section
-    @State private var isExpanded = true
+    @State private var isExpanded: Bool
+
+    init(section: BundleCard.Section) {
+        self.section = section
+        _isExpanded = State(initialValue: !section.startsCollapsed)
+    }
 
     var body: some View {
         switch section.style {
@@ -338,10 +451,12 @@ private struct BundleSectionView: View {
                                 Text(row.label)
                                     .textSelection(.enabled)
                                     .frame(maxWidth: .infinity, alignment: .leading)
-                                Text(row.value)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.trailing)
-                                    .textSelection(.enabled)
+                                if !row.value.isEmpty {
+                                    Text(row.value)
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.trailing)
+                                        .textSelection(.enabled)
+                                }
                             }
                             .font(.system(.callout, design: .monospaced))
                         }
