@@ -29,10 +29,10 @@ enum RendererRegistry {
             return SQLiteRenderer()
 
         case .archive:
-            return nil
+            return ArchiveRenderer()
 
         case .bundle:
-            return nil
+            return BundleRenderer()
         }
     }
 }
