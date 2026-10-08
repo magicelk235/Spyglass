@@ -32,7 +32,7 @@ enum RendererRegistry {
             return ArchiveRenderer()
 
         case .bundle:
-            return nil
+            return BundleRenderer()
         }
     }
 }
