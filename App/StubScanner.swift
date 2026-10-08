@@ -17,7 +17,7 @@ private let log = Logger(subsystem: "com.spyglass.app", category: "scanner")
 /// how edited docs get re-rendered.
 final class StubScanner: NSObject {
     private var query: NSMetadataQuery?
-    private let queue = FetchQueue.groupContainerURL().map { FetchQueue(directory: $0) }
+    private let queue = AppGroup.containerURL.map { FetchQueue(directory: $0) }
 
     /// Extensions worth opening. The six Google stub types, plus `.webloc` for
     /// the third-party Drive clients that write bookmarks instead of stubs.

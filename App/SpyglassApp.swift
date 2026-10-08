@@ -1,5 +1,6 @@
 import SwiftUI
 import ServiceManagement
+import SpyglassKit
 
 @main
 struct SpyglassApp: App {
@@ -12,6 +13,9 @@ struct SpyglassApp: App {
     private let scanner = StubScanner()
 
     init() {
+        // Before anything opens the App Group: 1.0 kept the license and cache
+        // in a group the Quick Look extension can no longer read.
+        LegacyGroupMigration.run()
         worker.start()
         scanner.start()
         // Keep the agent alive across logins so previews stay warm. Personal

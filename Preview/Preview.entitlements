@@ -11,16 +11,12 @@
     <true/>
     <key>com.apple.security.network.client</key>
     <true/>
+    <!-- Team-prefixed: macOS 15+ only lets a sandboxed extension open a
+         group.* container its provisioning profile lists, and Developer ID
+         profiles list none. See AppGroup.swift. -->
     <key>com.apple.security.application-groups</key>
     <array>
-        <string>group.com.spyglass.shared</string>
-    </array>
-    <!-- Preview settings live in a JSON file the app writes here. macOS
-         denies the extension reads of the App Group's preferences, so the
-         group can't carry them. Read-only, this one folder. -->
-    <key>com.apple.security.temporary-exception.files.home-relative-path.read-only</key>
-    <array>
-        <string>/Library/Application Support/Spyglass/</string>
+        <string>V8K8L3ZSD5.com.spyglass.shared</string>
     </array>
     <key>keychain-access-groups</key>
     <array>

@@ -20,10 +20,10 @@ final class FetchWorker: NSObject {
     // can't write files into the group container, but cfprefsd writes work.
     // KVO on a shared suite is delivered across processes, so a running app
     // picks up new requests without polling.
-    private let sharedDefaults = UserDefaults(suiteName: "group.com.spyglass.shared")
+    private let sharedDefaults = UserDefaults(suiteName: AppGroup.identifier)
 
     override init() {
-        let container = FetchQueue.groupContainerURL()
+        let container = AppGroup.containerURL
         queue = container.map { FetchQueue(directory: $0) }
         cache = container.map { PreviewCache(directory: $0) }
         super.init()

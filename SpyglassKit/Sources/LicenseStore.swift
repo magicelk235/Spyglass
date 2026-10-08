@@ -11,12 +11,12 @@ public struct LicenseStore {
     // Gumroad product for Spyglass Tier 1.
     public static let productID = "YMTEmgQNPRDS27c2B_bflw=="
 
-    private static let proKey = "isPro"
-    private static let keyKey = "licenseKey"
+    static let proKey = "isPro"
+    static let keyKey = "licenseKey"
 
     private let defaults: UserDefaults?
 
-    public init(groupID: String = "group.com.spyglass.shared") {
+    public init(groupID: String = AppGroup.identifier) {
         defaults = UserDefaults(suiteName: groupID)
     }
 

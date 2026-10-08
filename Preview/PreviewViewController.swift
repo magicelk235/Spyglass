@@ -62,13 +62,15 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         // Any type with a cached PDF renders (Forms/Sites arrive as a thumbnail
         // wrapped in a PDF by the app; exportable types as the real export).
         if LicenseStore().isPro,
-           let container = FetchQueue.groupContainerURL(),
+           let container = AppGroup.containerURL,
            let pdf = PreviewCache(directory: container).anyCachedPDF(docID: stub.docID),
            showPDF(pdf) {
+            log.notice("Drive: showing cached PDF")
             return
         }
 
         // Tier 0 fallback: always works, no network needed.
+        log.notice("Drive: showing offline card")
         show(AnyView(StubCardView(stub: stub)))
     }
 
