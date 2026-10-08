@@ -49,12 +49,12 @@ public struct PackageInfo: Sendable {
         }
         let compressed = try file.readExactly(at: headerSize, count: Int(tocCompressed), "table of contents")
         let tocData = try decodeAll(compressed, with: try Inflater(.zlib), limit: tocLimit)
-        guard let toc = XMLNode.parse(Data(tocData))?.child("toc") else {
+        guard let toc = XARElement.parse(Data(tocData))?.child("toc") else {
             throw ArchiveError.corrupt("The package's table of contents isn't readable")
         }
         let heapStart = headerSize + tocCompressed
 
-        var members: [(path: String, node: XMLNode)] = []
+        var members: [(path: String, node: XARElement)] = []
         var pending = toc.children("file").reversed().map { ("", $0) }
         while let (parent, node) = pending.popLast() {
             guard let name = node.child("name")?.text, !name.isEmpty else { continue }
@@ -76,17 +76,17 @@ public struct PackageInfo: Sendable {
             guard let node = members.first(where: { $0.path == path })?.node else { return nil }
             return try? data(of: node, in: file, heapStart: heapStart)
         }
-        if let distribution = memberData("Distribution").flatMap({ XMLNode.parse($0) }) {
+        if let distribution = memberData("Distribution").flatMap({ XARElement.parse($0) }) {
             info.readDistribution(distribution)
         }
         // A component package has its own PackageInfo; a product archive
         // has one per component, which fill in what Distribution leaves out
         // (install location, file counts).
-        if let packageInfo = memberData("PackageInfo").flatMap({ XMLNode.parse($0) }) {
+        if let packageInfo = memberData("PackageInfo").flatMap({ XARElement.parse($0) }) {
             info.readPackageInfo(packageInfo, isOnlyComponent: true)
         } else {
             for (path, _) in members.filter({ $0.path.hasSuffix(".pkg/PackageInfo") }).prefix(32) {
-                if let packageInfo = memberData(path).flatMap({ XMLNode.parse($0) }) {
+                if let packageInfo = memberData(path).flatMap({ XARElement.parse($0) }) {
                     info.readPackageInfo(packageInfo, isOnlyComponent: false)
                 }
             }
@@ -96,7 +96,7 @@ public struct PackageInfo: Sendable {
 
     // MARK: - Table of contents
 
-    private static func listing(of members: [(path: String, node: XMLNode)], maxEntries: Int) -> ArchiveListing {
+    private static func listing(of members: [(path: String, node: XARElement)], maxEntries: Int) -> ArchiveListing {
         var entries: [ArchiveEntry] = []
         for (path, node) in members.prefix(maxEntries) {
             let kind: ArchiveEntry.Kind
@@ -118,7 +118,7 @@ public struct PackageInfo: Sendable {
     }
 
     /// The certificates xar stores beside its signature, as names.
-    private static func signerNames(in toc: XMLNode) -> [String] {
+    private static func signerNames(in toc: XARElement) -> [String] {
         for signature in toc.children("signature") + toc.children("x-signature") {
             let names = (signature.child("KeyInfo")?.child("X509Data")?.children("X509Certificate") ?? [])
                 .compactMap { Data(base64Encoded: $0.text, options: .ignoreUnknownCharacters) }
@@ -130,7 +130,7 @@ public struct PackageInfo: Sendable {
     }
 
     /// One member's bytes from the heap, decoded. Only small members.
-    private static func data(of node: XMLNode, in file: FileBytes, heapStart: UInt64) throws -> Data {
+    private static func data(of node: XARElement, in file: FileBytes, heapStart: UInt64) throws -> Data {
         guard let data = node.child("data"),
               let offset = data.child("offset")?.number,
               let length = data.child("length")?.number, length <= UInt64(memberLimit) else {
@@ -155,7 +155,7 @@ public struct PackageInfo: Sendable {
 
     // MARK: - Distribution and PackageInfo
 
-    private mutating func readDistribution(_ root: XMLNode) {
+    private mutating func readDistribution(_ root: XARElement) {
         if let text = root.child("title")?.text.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty {
             title = text
         }
@@ -194,7 +194,7 @@ public struct PackageInfo: Sendable {
         }
     }
 
-    private mutating func readPackageInfo(_ root: XMLNode, isOnlyComponent: Bool) {
+    private mutating func readPackageInfo(_ root: XARElement, isOnlyComponent: Bool) {
         guard root.name == "pkg-info" else { return }
         installLocation = installLocation ?? root.attributes["install-location"]
         if isOnlyComponent {
@@ -239,25 +239,25 @@ public struct PackageInfo: Sendable {
 /// A minimal XML element tree, enough for xar tables of contents and
 /// installer scripts. Element count is capped so a hostile file can't
 /// balloon memory.
-final class XMLNode {
+final class XARElement {
     let name: String
     let attributes: [String: String]
     fileprivate(set) var text = ""
-    fileprivate(set) var elements: [XMLNode] = []
+    fileprivate(set) var elements: [XARElement] = []
 
     init(name: String, attributes: [String: String]) {
         self.name = name
         self.attributes = attributes
     }
 
-    func child(_ name: String) -> XMLNode? { elements.first { $0.name == name } }
-    func children(_ name: String) -> [XMLNode] { elements.filter { $0.name == name } }
+    func child(_ name: String) -> XARElement? { elements.first { $0.name == name } }
+    func children(_ name: String) -> [XARElement] { elements.filter { $0.name == name } }
     var number: UInt64? { UInt64(text.trimmingCharacters(in: .whitespacesAndNewlines)) }
 
     /// The document's root element; nil for malformed XML. Past
     /// `maxElements` elements or `maxDepth` levels parsing stops and the tree
     /// so far is kept; freeing nodes recurses, so depth must stay bounded.
-    static func parse(_ data: Data, maxElements: Int = 500_000, maxDepth: Int = 64) -> XMLNode? {
+    static func parse(_ data: Data, maxElements: Int = 500_000, maxDepth: Int = 64) -> XARElement? {
         let builder = Builder(maxElements: maxElements, maxDepth: maxDepth)
         let parser = XMLParser(data: data)
         parser.shouldResolveExternalEntities = false
@@ -269,8 +269,8 @@ final class XMLNode {
     private final class Builder: NSObject, XMLParserDelegate {
         let maxElements: Int
         let maxDepth: Int
-        var root: XMLNode?
-        var stack: [XMLNode] = []
+        var root: XARElement?
+        var stack: [XARElement] = []
         var count = 0
         var hitLimit = false
 
@@ -287,7 +287,7 @@ final class XMLNode {
                 parser.abortParsing()
                 return
             }
-            let node = XMLNode(name: name, attributes: attributes)
+            let node = XARElement(name: name, attributes: attributes)
             if let parent = stack.last { parent.elements.append(node) } else { root = node }
             stack.append(node)
         }
