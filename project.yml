@@ -20,6 +20,34 @@ settings:
     # System bzip2 has no Swift module in the SDK; this module map exposes it.
     SWIFT_INCLUDE_PATHS: $(SRCROOT)/SpyglassKit/CBzip2
 
+targetTemplates:
+  # The web previews' shell and vendored JS, copied to Resources/Web with
+  # their folder layout intact (KaTeX's CSS finds its fonts by relative path).
+  # WebRenderer loads them from there in the extension and in the harness.
+  WebPreviewResources:
+    sources:
+      - path: Preview/Web/shell.html
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Web
+      - path: Preview/Web/app.js
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Web
+      - path: Preview/Web/app.css
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Web
+      - path: Preview/Web/vendor
+        type: folder
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Web
+
 targets:
   # Shared, unit-testable logic used by both the app and the extension.
   SpyglassKit:
@@ -57,8 +85,14 @@ targets:
   SpyglassPreview:
     type: app-extension
     platform: macOS
+    templates: [WebPreviewResources]
     sources:
       - path: Preview
+        excludes:
+          - Web/shell.html
+          - Web/app.js
+          - Web/app.css
+          - Web/vendor
       - path: GoogleOAuth.plist
         buildPhase: resources
     settings:
@@ -76,11 +110,13 @@ targets:
   PreviewHarness:
     type: application
     platform: macOS
+    templates: [WebPreviewResources]
     sources:
       - path: Tools/PreviewHarness
       - path: Preview/Rendering
       - path: Preview/Renderers
         optional: true
+      - path: Preview/Web/WebRenderer.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.spyglass.preview-harness

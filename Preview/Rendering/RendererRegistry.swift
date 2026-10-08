@@ -11,16 +11,16 @@ enum RendererRegistry {
             return nil
 
         case .code:
-            return nil
+            return CodeRenderer()
 
         case .structured:
-            return nil
+            return StructuredRenderer()
 
         case .markdown:
-            return nil
+            return MarkdownRenderer()
 
         case .diff:
-            return nil
+            return DiffRenderer()
 
         case .table:
             return TableRenderer()
