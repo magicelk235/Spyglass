@@ -23,10 +23,10 @@ enum RendererRegistry {
             return nil
 
         case .table:
-            return nil
+            return TableRenderer()
 
         case .sqlite:
-            return nil
+            return SQLiteRenderer()
 
         case .archive:
             return nil
