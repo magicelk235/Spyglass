@@ -47,7 +47,7 @@ enum RendererRegistry {
             return nil
 
         case .folder:
-            return nil
+            return FolderRenderer()
         }
     }
 }
