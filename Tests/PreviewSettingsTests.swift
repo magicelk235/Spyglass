@@ -3,51 +3,63 @@ import XCTest
 
 final class PreviewSettingsTests: XCTestCase {
 
-    private var suite: String!
+    private var dir: URL!
+    private var file: URL { dir.appendingPathComponent("Spyglass/preview-settings.json") }
 
-    override func setUp() {
-        suite = "spyglass-settings-test-\(UUID().uuidString)"
+    override func setUpWithError() throws {
+        dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spyglass-settings-test-\(UUID().uuidString)")
     }
 
-    override func tearDown() {
-        UserDefaults().removePersistentDomain(forName: suite)
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: dir)
     }
 
     func testMissingSettingsLoadDefaults() {
-        let s = PreviewSettings.load(groupID: suite)
+        let s = PreviewSettings.load(from: file)
         XCTAssertEqual(s, PreviewSettings())
         XCTAssertTrue(FormatGroup.allCases.allSatisfy(s.isEnabled))
     }
 
-    func testRoundTrip() {
+    func testRoundTripCreatesTheFolder() throws {
         var s = PreviewSettings()
         s.theme = .dark
         s.codeFontSize = 15
         s.disabledGroups = [.sqlite, .bundle]
-        s.save(groupID: suite)
-        let loaded = PreviewSettings.load(groupID: suite)
+        try s.save(to: file)
+        let loaded = PreviewSettings.load(from: file)
         XCTAssertEqual(loaded, s)
         XCTAssertFalse(loaded.isEnabled(.sqlite))
         XCTAssertTrue(loaded.isEnabled(.markdown))
     }
 
-    func testCorruptStoredValueFallsBackToDefaults() {
-        UserDefaults(suiteName: suite)!.set(Data("not json".utf8), forKey: "previewSettings")
-        XCTAssertEqual(PreviewSettings.load(groupID: suite), PreviewSettings())
+    func testCorruptFileFallsBackToDefaults() throws {
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("not json".utf8).write(to: file)
+        XCTAssertEqual(PreviewSettings.load(from: file), PreviewSettings())
     }
 
-    func testSettingsFromAnOlderVersionKeepKnownFields() {
-        UserDefaults(suiteName: suite)!.set(Data(#"{"theme":"light"}"#.utf8), forKey: "previewSettings")
-        let s = PreviewSettings.load(groupID: suite)
+    func testSettingsFromAnOlderVersionKeepKnownFields() throws {
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"theme":"light"}"#.utf8).write(to: file)
+        let s = PreviewSettings.load(from: file)
         XCTAssertEqual(s.theme, .light)
         XCTAssertEqual(s.codeFontSize, 12)
         XCTAssertEqual(s.disabledGroups, [])
     }
 
-    func testFontSizeIsClamped() {
+    func testFontSizeIsClamped() throws {
         var s = PreviewSettings()
         s.codeFontSize = 400
-        s.save(groupID: suite)
-        XCTAssertEqual(PreviewSettings.load(groupID: suite).codeFontSize, PreviewSettings.fontSizeRange.upperBound)
+        try s.save(to: file)
+        XCTAssertEqual(PreviewSettings.load(from: file).codeFontSize, PreviewSettings.fontSizeRange.upperBound)
+    }
+
+    /// The extension's sandbox exception is home-relative, so the default
+    /// location must be under the real home folder, never a container.
+    func testDefaultLocationIsUnderTheRealHomeFolder() {
+        let path = PreviewSettings.defaultURL.path
+        XCTAssertTrue(path.hasSuffix("/Library/Application Support/Spyglass/preview-settings.json"), path)
+        XCTAssertFalse(path.contains("/Library/Containers/"), path)
     }
 }

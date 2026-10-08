@@ -1,6 +1,9 @@
 import AppKit
+import OSLog
 import SwiftUI
 import SpyglassKit
+
+private let log = Logger(subsystem: "com.spyglass.app", category: "settings")
 
 enum SettingsTab: String, CaseIterable, Identifiable {
     case appearance
@@ -37,7 +40,9 @@ final class SettingsNavigation {
 @Observable
 final class PreviewSettingsStore {
     var settings: PreviewSettings {
-        didSet { settings.save() }
+        didSet {
+            do { try settings.save() } catch { log.error("Saving preview settings failed: \(error, privacy: .public)") }
+        }
     }
 
     init() {

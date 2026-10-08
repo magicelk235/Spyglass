@@ -1,8 +1,9 @@
 import Foundation
 
-/// User preferences for format previews. The app writes them to the shared
-/// App Group defaults; the extension only reads them (its sandbox can't write
-/// shared prefs).
+/// User preferences for format previews. The app writes them to a JSON file
+/// in Application Support; the extension reads that file through a read-only
+/// sandbox exception. The App Group can't carry them: macOS denies the
+/// extension reads of the group's preferences (app data protection).
 public struct PreviewSettings: Codable, Equatable, Sendable {
 
     public enum Theme: String, Codable, CaseIterable, Sendable {
@@ -30,21 +31,30 @@ public struct PreviewSettings: Codable, Equatable, Sendable {
         !disabledGroups.contains(group)
     }
 
-    private static let key = "previewSettings"
+    /// `~/Library/Application Support/Spyglass/preview-settings.json` under
+    /// the real home folder. Inside the sandbox `homeDirectoryForCurrentUser`
+    /// points into the extension's container, so ask the user database.
+    public static var defaultURL: URL {
+        let home = getpwuid(getuid()).flatMap { $0.pointee.pw_dir.map { String(cString: $0) } }
+            ?? NSHomeDirectory()
+        return URL(fileURLWithPath: home, isDirectory: true)
+            .appendingPathComponent("Library/Application Support/Spyglass/preview-settings.json")
+    }
 
     /// Missing or unreadable settings load as defaults, so a bad write can
     /// never stop previews from working.
-    public static func load(groupID: String = "group.com.spyglass.shared") -> PreviewSettings {
-        guard let data = UserDefaults(suiteName: groupID)?.data(forKey: key),
+    public static func load(from url: URL = defaultURL) -> PreviewSettings {
+        guard let data = try? Data(contentsOf: url),
               var settings = try? JSONDecoder().decode(PreviewSettings.self, from: data)
         else { return PreviewSettings() }
         settings.codeFontSize = settings.codeFontSize.clamped(to: fontSizeRange)
         return settings
     }
 
-    public func save(groupID: String = "group.com.spyglass.shared") {
-        guard let data = try? JSONEncoder().encode(self) else { return }
-        UserDefaults(suiteName: groupID)?.set(data, forKey: Self.key)
+    public func save(to url: URL = defaultURL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try JSONEncoder().encode(self).write(to: url, options: .atomic)
     }
 }
 
