@@ -26,6 +26,14 @@
 	<string>public.app-category.utilities</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/magicelk235/spyglass/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>cMKJ/ltcLtT5MZRYuRwFzNFMvpveIzfq7XUPgbUu2Lc=</string>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>

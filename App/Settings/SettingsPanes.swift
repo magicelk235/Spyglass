@@ -70,3 +70,29 @@ struct FormatsSettingsPane: View {
         )
     }
 }
+
+struct UpdatesSettingsPane: View {
+    @ObservedObject private var updater = Updater.shared
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Check for updates automatically", isOn: Binding(
+                    get: { updater.automaticallyChecksForUpdates },
+                    set: { updater.automaticallyChecksForUpdates = $0 }
+                ))
+                .toggleStyle(.switch)
+                LabeledContent("Version \(Self.version)") {
+                    Button("Check Now") { updater.checkForUpdates() }
+                }
+            } footer: {
+                Text("Updates download and install in the background. They're signed, and Spyglass checks the signature before installing.")
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.top, 8, for: .scrollContent)
+    }
+
+    private static let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+}

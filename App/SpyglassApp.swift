@@ -5,6 +5,7 @@ import SpyglassKit
 @main
 struct SpyglassApp: App {
     @StateObject private var auth = GoogleAuth()
+    @StateObject private var license = LicenseModel()
     // Held for the app's lifetime. The worker drains/fetches queued docIDs;
     // the scanner discovers stub files on disk and enqueues them. Together
     // they keep the shared preview cache warm — the write-locked Quick Look
@@ -21,12 +22,15 @@ struct SpyglassApp: App {
         // Keep the agent alive across logins so previews stay warm. Personal
         // build: failure (e.g. user declined) is non-fatal, just less coverage.
         try? SMAppService.mainApp.register()
+        Updater.shared.start()
+        DispatchQueue.main.async { WelcomeWindowController.showIfFirstLaunch() }
     }
 
     var body: some Scene {
         MenuBarExtra("Spyglass", image: "SpyglassMenuBar") {
             ContentView()
                 .environmentObject(auth)
+                .environmentObject(license)
                 .onAppear { auth.restore() }
         }
         .menuBarExtraStyle(.window)   // hosts the full ContentView as a popover

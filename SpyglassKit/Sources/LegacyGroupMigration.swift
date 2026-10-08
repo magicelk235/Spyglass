@@ -10,6 +10,8 @@ public enum LegacyGroupMigration {
         legacyDefaults: UserDefaults?, legacyContainer: URL?,
         defaults: UserDefaults?, container: URL?
     ) {
+        // 1.0 stored a key and an `isPro` flag; LicenseStore reads that pair
+        // as the 1.0 plan.
         if let legacyDefaults, let defaults,
            defaults.string(forKey: LicenseStore.keyKey) == nil,
            let key = legacyDefaults.string(forKey: LicenseStore.keyKey) {

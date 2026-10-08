@@ -11,7 +11,7 @@ public enum DriveCache {
     public static func licensedPDF(docID: String,
                                    license: LicenseStore = LicenseStore(),
                                    container: URL? = AppGroup.containerURL) -> Data? {
-        guard license.isPro, let container else { return nil }
+        guard license.access().allowsDrive, let container else { return nil }
         return PreviewCache(directory: container).anyCachedPDF(docID: docID)
     }
 }

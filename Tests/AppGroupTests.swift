@@ -36,16 +36,21 @@ final class AppGroupTests: XCTestCase {
         XCTAssertTrue(AppGroup.identifier.hasPrefix("V8K8L3ZSD5."))
     }
 
-    func testDriveCacheHidesPDFsWithoutALicense() throws {
-        let licensed = suite(), unlicensed = suite()
-        licensed.set(true, forKey: "isPro")
+    /// Only a plan that includes Drive may see cached Drive PDFs: not the
+    /// trial, not Pro alone.
+    func testDriveCacheShowsPDFsOnlyWithDriveAccess() throws {
+        let drive = suite(), pro = suite(), trial = suite()
+        drive.set("K", forKey: "licenseKey"); drive.set("drive", forKey: "licensePlan"); drive.set(true, forKey: "membershipActive")
+        pro.set("K", forKey: "licenseKey"); pro.set("pro", forKey: "licensePlan")
+        trial.set(Date(), forKey: "trialStartedAt")
         let container = try dir()
         try PreviewCache(directory: container).store(docID: "DOC", modifiedTime: "t", pdf: Data("pdf".utf8))
 
-        XCTAssertEqual(DriveCache.licensedPDF(docID: "DOC", license: LicenseStore(defaults: licensed), container: container),
+        XCTAssertEqual(DriveCache.licensedPDF(docID: "DOC", license: LicenseStore(defaults: drive), container: container),
                        Data("pdf".utf8))
-        XCTAssertNil(DriveCache.licensedPDF(docID: "DOC", license: LicenseStore(defaults: unlicensed), container: container))
-        XCTAssertNil(DriveCache.licensedPDF(docID: "OTHER", license: LicenseStore(defaults: licensed), container: container))
+        XCTAssertNil(DriveCache.licensedPDF(docID: "DOC", license: LicenseStore(defaults: pro), container: container))
+        XCTAssertNil(DriveCache.licensedPDF(docID: "DOC", license: LicenseStore(defaults: trial), container: container))
+        XCTAssertNil(DriveCache.licensedPDF(docID: "OTHER", license: LicenseStore(defaults: drive), container: container))
     }
 
     func testMigrationCopiesLicenseAndMovesPreviews() throws {

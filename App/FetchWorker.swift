@@ -92,7 +92,7 @@ final class FetchWorker: NSObject {
 
         // No pro license or no sign-in → nothing we fetch; drop the markers so
         // the dir doesn't grow. The extension keeps showing the free Tier 0 card.
-        guard LicenseStore().isPro,
+        guard LicenseStore().access().allowsDrive,
               TokenStore().load() != nil, let clientID = OAuthConfig.clientID() else {
             docIDs.forEach { queue.complete(docID: $0) }
             return

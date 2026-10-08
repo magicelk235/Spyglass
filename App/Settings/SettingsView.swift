@@ -5,6 +5,7 @@ import SpyglassKit
 enum SettingsTab: String, CaseIterable, Identifiable {
     case appearance
     case formats
+    case updates
 
     var id: Self { self }
 
@@ -12,6 +13,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "Appearance"
         case .formats: "Formats"
+        case .updates: "Updates"
         }
     }
 
@@ -19,6 +21,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .appearance: "paintbrush"
         case .formats: "doc.text.magnifyingglass"
+        case .updates: "arrow.triangle.2.circlepath"
         }
     }
 }
@@ -81,6 +84,7 @@ struct SettingsView: View {
                 switch activeTab {
                 case .appearance: AppearanceSettingsPane(store: store)
                 case .formats: FormatsSettingsPane(store: store)
+                case .updates: UpdatesSettingsPane()
                 }
             }
             .navigationTitle(activeTab.title)

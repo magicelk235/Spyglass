@@ -1,36 +1,29 @@
 import SwiftUI
 import SpyglassKit
 
-/// Single centered column, System-Settings-style grouped Form. Follows the
-/// macOS HIG: hero content centered and near the top, controls grouped with
-/// native material and negative space, minimal settings.
+/// The menu-bar popover: what the user has (trial, Pro, Pro + Drive), how to
+/// unlock more, and the Google Drive setup for Drive plans. System-Settings
+/// style grouped Form, one prominent action at a time.
 struct ContentView: View {
     @EnvironmentObject private var auth: GoogleAuth
+    @EnvironmentObject private var license: LicenseModel
 
-    @State private var isPro = LicenseStore().isPro
     @State private var licenseInput = ""
-    @State private var activating = false
-    @State private var licenseError: String?
     @State private var driveBlocked = DriveAccess.isBlocked()
     @State private var hoveringLicense = false
     @State private var hoveringAccount = false
 
     var body: some View {
         VStack(spacing: 0) {
-            if driveBlocked {
-                // Full Disk Access is mandatory to read Drive — until it's
-                // granted nothing else in the app works, so the popover shows
-                // only this gate (no hero, no Form).
-                fdaGate
-            } else {
-                hero
-                Divider()
-                Form {
-                    statusSection
-                    if isPro { accountSection }
+            hero
+            Divider()
+            Form {
+                planSection
+                if license.access.allowsDrive {
+                    driveSection
                 }
-                .formStyle(.grouped)
             }
+            .formStyle(.grouped)
             Divider()
             HStack(spacing: 12) {
                 Spacer()
@@ -45,15 +38,15 @@ struct ContentView: View {
             }
             .padding(.vertical, 10)
         }
-        .frame(width: 460, height: 520)
+        // Drive plans add the Google Drive section; the rest fits in less.
+        .frame(width: 460, height: license.access.allowsDrive ? 560 : 440)
         .onAppear {
-            // The popover reuses one persistent view, so @State init runs only
-            // once at launch. Re-check every time the popover opens, otherwise
-            // toggling Full Disk Access while the app is running is never seen.
+            // The popover reuses one view, so re-check each time it opens:
+            // the trial counts down and Full Disk Access may have changed.
+            license.refresh()
             driveBlocked = DriveAccess.isBlocked()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            // Also re-check when returning from System Settings.
             driveBlocked = DriveAccess.isBlocked()
         }
     }
@@ -61,108 +54,138 @@ struct ContentView: View {
     // MARK: - Hero
 
     private var hero: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             Text("Spyglass").font(.title).bold()
-            Text("Real Quick Look previews for Google Workspace files")
+            Text("Select a file in Finder and press Space.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 320)
         }
         .frame(maxWidth: .infinity)
-        .padding(.top, 28)
-        .padding(.bottom, 22)
+        .padding(.top, 24)
+        .padding(.bottom, 18)
     }
 
-    // MARK: - Status / license
+    // MARK: - Plan
 
     @ViewBuilder
-    private var statusSection: some View {
-        if isPro {
-            Section {
-                LabeledContent {
-                    Label("Unlocked", systemImage: "checkmark.seal.fill")
-                        .foregroundStyle(.green).labelStyle(.titleAndIcon)
-                } label: {
-                    Text("Tier 1")
-                }
-                .overlay {
-                    Button("Deactivate") {
-                        LicenseStore().clear()
-                        isPro = false
-                    }
+    private var planSection: some View {
+        switch license.access {
+        case .pro, .proAndDrive:
+            ownedSection
+        case .notStarted, .trial, .expired:
+            unlockSection
+        }
+    }
+
+    private var ownedSection: some View {
+        Section {
+            LabeledContent {
+                Label("Unlocked", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+                    .labelStyle(.titleAndIcon)
+            } label: {
+                Text(planName)
+            }
+            .overlay {
+                Button("Deactivate") { license.deactivate() }
                     .buttonStyle(.link)
                     .foregroundStyle(.red)
                     .opacity(hoveringLicense ? 1 : 0)
-                }
-                .onHover { hoveringLicense = $0 }
-            } header: {
-                Text("Rendered previews")
-            } footer: {
-                Text("Docs, Sheets, Slides and Drawings render their real first page. Forms and Sites show the info card.")
             }
-        } else {
-            Section {
-                HStack(spacing: 8) {
-                    TextField("License key", text: $licenseInput)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit(activate)
-                    Button(activating ? "Checking…" : "Unlock", action: activate)
-                        .buttonStyle(.borderedProminent)
-                        .disabled(activating || licenseInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            .onHover { hoveringLicense = $0 }
+            if license.access == .pro {
+                Link(destination: LicenseStore.buyDriveURL) {
+                    Label("Add Google Drive previews: $4/month", systemImage: "icloud")
                 }
-                if let err = licenseError {
-                    Text(err).font(.callout).foregroundStyle(.red)
-                }
-                Link(destination: URL(string: "https://magicelk235.gumroad.com/l/spyglass")!) {
-                    Label("Buy a key — $12, one-time", systemImage: "cart")
-                }
-            } header: {
-                Text("Unlock Tier 1")
-            } footer: {
-                Text("Tier 0 info cards work now for all six types, no sign-in. Tier 1 adds real rendered previews.")
             }
+        } header: {
+            Text("Your plan")
+        } footer: {
+            Text(planFooter)
         }
     }
 
-    // MARK: - Full Disk Access
-
-    private var fdaGate: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            Image(systemName: "lock.shield")
-                .font(.system(size: 44))
-                .foregroundStyle(.secondary)
-            Text("Full Disk Access needed")
-                .font(.title2).bold()
-            Text("Grant Full Disk Access so Spyglass can read your Drive and render previews.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: 340)
-            Button {
-                DriveAccess.openSettings()
-            } label: {
-                Label("Open Full Disk Access settings", systemImage: "arrow.up.forward.app")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .frame(maxWidth: 340)
-            Spacer()
+    private var planName: String {
+        switch license.plan {
+        case .legacy: return "Pro + Drive (Spyglass 1.0 license)"
+        case .drive:  return "Pro + Drive"
+        default:      return "Pro"
         }
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Account (Tier 1 only)
+    private var planFooter: String {
+        license.access == .pro
+            ? "Every format preview is yours to keep."
+            : "Every format preview, plus your Google Drive documents rendered for real."
+    }
+
+    private var unlockSection: some View {
+        Section {
+            HStack(spacing: 8) {
+                TextField("License key", text: $licenseInput)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(activate)
+                Button(license.activating ? "Checking…" : "Unlock", action: activate)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(license.activating || licenseInput.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if let error = license.error {
+                Text(error).font(.callout).foregroundStyle(.red)
+            }
+            Link(destination: LicenseStore.buyProURL) {
+                Label("Spyglass Pro: $12 once", systemImage: "cart")
+            }
+            Link(destination: LicenseStore.buyDriveURL) {
+                Label("Pro + Google Drive: $4/month", systemImage: "icloud")
+            }
+        } header: {
+            Text(trialHeadline)
+        } footer: {
+            Text(unlockFooter)
+        }
+    }
+
+    private var trialHeadline: String {
+        switch license.access {
+        case .trial(let days): return days == 1 ? "Free trial: last day" : "Free trial: \(days) days left"
+        case .expired:         return license.plan == .drive ? "Drive membership ended" : "Free trial ended"
+        default:               return "Free trial"
+        }
+    }
+
+    private var unlockFooter: String {
+        switch license.access {
+        case .expired:
+            return "Previews now show plain text or a file summary. Paste the key from your Gumroad receipt to unlock them again. Google Drive info cards stay free."
+        default:
+            return "Every format preview works during the trial. Paste the key from your Gumroad receipt to keep them. Google Drive info cards stay free."
+        }
+    }
+
+    private func activate() {
+        let key = licenseInput
+        Task {
+            await license.activate(key)
+            if license.error == nil { licenseInput = "" }
+        }
+    }
+
+    // MARK: - Google Drive (Drive plans only)
 
     @ViewBuilder
-    private var accountSection: some View {
+    private var driveSection: some View {
         Section {
-            if let email = auth.email {
+            if driveBlocked {
+                Text("Spyglass needs Full Disk Access to read your Google Drive folder.")
+                    .font(.callout)
+                Button {
+                    DriveAccess.openSettings()
+                } label: {
+                    Label("Open Full Disk Access settings", systemImage: "lock.shield")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            } else if let email = auth.email {
                 LabeledContent("Google") {
                     Text(email).lineLimit(1).truncationMode(.middle)
                 }
@@ -174,8 +197,6 @@ struct ContentView: View {
                 }
                 .onHover { hoveringAccount = $0 }
             } else {
-                // Single most important action for an unlocked-but-unconnected
-                // user: give it primary weight (one prominent CTA per screen).
                 Button {
                     Task { try? await auth.signIn() }
                 } label: {
@@ -191,26 +212,9 @@ struct ContentView: View {
                 }
             }
         } header: {
-            Text("Account")
+            Text("Google Drive")
         } footer: {
-            Text("Sign-in lets Spyglass fetch and render your documents.")
-        }
-    }
-
-    private func activate() {
-        let key = licenseInput
-        activating = true
-        licenseError = nil
-        Task {
-            do {
-                try await LicenseStore().activate(key: key)
-                isPro = true
-            } catch {
-                licenseError = error.localizedDescription
-            }
-            activating = false
+            Text("Spyglass reads your Drive read-only to render Docs, Sheets, Slides and Drawings.")
         }
     }
 }
-
-#Preview { ContentView().environmentObject(GoogleAuth()) }

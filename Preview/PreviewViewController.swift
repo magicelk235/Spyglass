@@ -31,7 +31,7 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         let uti = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
         let kind = PreviewKind.route(filename: url.lastPathComponent, uti: uti)
         guard kind == .googleStub || kind == .webloc else {
-            install(await FormatPreview.makeView(kind: kind, url: url, settings: PreviewSettings.load()))
+            install(await formatView(kind: kind, url: url))
             watcher = FileWatcher(url: url) { [weak self] in
                 Task { @MainActor in await self?.reload(url: url, kind: kind) }
             }
@@ -117,11 +117,42 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             reloadAgain = false
             var position: ScrollMemory.Position?
             if let current = view.subviews.first { position = await ScrollMemory.capture(in: current) }
-            let content = await FormatPreview.makeView(kind: kind, url: url, settings: PreviewSettings.load())
+            let content = await formatView(kind: kind, url: url)
             install(content)
             ScrollMemory.restore(position, in: content)
             log.notice("Reloaded \(url.lastPathComponent, privacy: .public)")
         } while reloadAgain
+    }
+
+    // MARK: - Trial and license gate
+
+    /// The format preview the user's access allows. Without access, the file
+    /// still gets the free fallback (plain text or a summary) with a note
+    /// saying why, never a blank or a lock screen.
+    private func formatView(kind: PreviewKind?, url: URL) async -> NSView {
+        let access = LicenseStore().access()
+        let settings = PreviewSettings.load()
+        guard kind?.group != nil, !access.allowsFormats else {
+            let view = await FormatPreview.makeView(kind: kind, url: url, settings: settings)
+            return FallbackViews.withNote(view, note: Self.trialNote(access))
+        }
+        log.notice("Format preview locked: \(String(describing: access), privacy: .public)")
+        let view = await FormatPreview.makeView(kind: nil, url: url, settings: settings)
+        return FallbackViews.withNote(view, note: Self.lockedNote(access))
+    }
+
+    /// A reminder in the last two days of the trial; nothing otherwise.
+    static func trialNote(_ access: LicenseStore.Access) -> String? {
+        guard case .trial(let days) = access, days <= 2 else { return nil }
+        return days == 1
+            ? "Last day of your Spyglass trial. Unlock Pro from the menu bar to keep these previews."
+            : "2 days left in your Spyglass trial. Unlock Pro from the menu bar to keep these previews."
+    }
+
+    static func lockedNote(_ access: LicenseStore.Access) -> String {
+        access == .notStarted
+            ? "Open the Spyglass app once to start your free 7-day trial of rich previews."
+            : "Your Spyglass trial has ended. Unlock Pro from the menu bar to bring back rich previews."
     }
 
     /// Installs a SwiftUI hosting view as the view's sole subview.

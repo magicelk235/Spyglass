@@ -11,14 +11,20 @@ configFiles:
 
 settings:
   base:
-    MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "3"
+    MARKETING_VERSION: "2.0.0"
+    # Sparkle compares CFBundleVersion, so it must grow every release.
+    CURRENT_PROJECT_VERSION: "4"
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: "V8K8L3ZSD5"
     ENABLE_HARDENED_RUNTIME: YES
     # System bzip2 has no Swift module in the SDK; this module map exposes it.
     SWIFT_INCLUDE_PATHS: $(SRCROOT)/SpyglassKit/CBzip2
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.9.5"
 
 targetTemplates:
   # The web previews' shell and vendored JS, copied to Resources/Web with
@@ -58,7 +64,7 @@ targets:
       base:
         DEFINES_MODULE: YES
 
-  # Host application (thin: status UI + future sign-in).
+  # Host application: menu-bar popover, license, Google sign-in, updates.
   Spyglass:
     type: application
     platform: macOS
@@ -82,6 +88,7 @@ targets:
         embed: true
       - target: SpyglassThumbnail
         embed: true
+      - package: Sparkle
 
   # Quick Look Preview Extension (.appex embedded in the app).
   SpyglassPreview:
