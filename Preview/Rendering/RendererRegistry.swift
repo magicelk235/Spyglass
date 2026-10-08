@@ -44,7 +44,7 @@ enum RendererRegistry {
             return nil
 
         case .binary:
-            return nil
+            return BinaryRenderer()
 
         case .folder:
             return nil

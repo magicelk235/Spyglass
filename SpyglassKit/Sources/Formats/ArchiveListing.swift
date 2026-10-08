@@ -52,20 +52,24 @@ public struct ArchiveListing: Sendable {
 
     public var entries: [ArchiveEntry]
     public var incomplete: Incomplete?
-    /// A `.gz` or `.bz2` holding one compressed file rather than a tarball.
+    /// A `.gz`, `.bz2` or `.xz` holding one compressed file rather than a tarball.
     public var isSingleFile: Bool
+    /// A disc image's volume label.
+    public var volumeName: String?
 
-    public init(entries: [ArchiveEntry], incomplete: Incomplete? = nil, isSingleFile: Bool = false) {
+    public init(entries: [ArchiveEntry], incomplete: Incomplete? = nil, isSingleFile: Bool = false,
+                volumeName: String? = nil) {
         self.entries = entries
         self.incomplete = incomplete
         self.isSingleFile = isSingleFile
+        self.volumeName = volumeName
     }
 }
 
 /// Caps on how much work listing one archive may do.
 public struct ArchiveLimits: Sendable {
     public var maxEntries: Int
-    /// Decompressed bytes a `.gz`/`.bz2` may produce before listing stops.
+    /// Decompressed bytes a `.gz`/`.bz2`/`.xz` may produce before listing stops.
     public var maxDecompressedBytes: UInt64
     /// Seconds of decompression or reading before listing stops.
     public var maxDuration: TimeInterval
@@ -119,9 +123,9 @@ public enum ArchiveReader {
         case .bzip2:
             return try CompressedArchive.list(url, format: .bzip2, limits: limits)
         case .xz:
-            throw ArchiveError.unsupported("xz archives are not supported yet")
+            return try CompressedArchive.list(url, format: .xz, limits: limits)
         case .iso:
-            throw ArchiveError.unsupported("ISO images are not supported yet")
+            return try ISOImage.list(url, limits: limits)
         }
     }
 
@@ -130,6 +134,7 @@ public enum ArchiveReader {
             return .zip
         }
         if head.starts(with: [0x1F, 0x8B]) { return .gzip }
+        if head.starts(with: CompressionFormat.xz.magic) { return .xz }
         if head.count >= 4, head.starts(with: [0x42, 0x5A, 0x68]), (0x31...0x39).contains(head[3]) {
             return .bzip2
         }

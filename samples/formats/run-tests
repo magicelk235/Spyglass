@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Runs the test suite and reports failures.
+set -euo pipefail
+
+for suite in "$@"; do
+  echo "Running ${suite}..."
+  swift test --filter "$suite" || exit 1
+done

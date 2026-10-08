@@ -2,40 +2,28 @@ import Foundation
 import MachO.dyld.utils
 
 /// Architecture names from the start of a Mach-O executable: a fat header's
-/// slice list, or a thin binary's one CPU type.
+/// slice list, or a thin binary's one CPU type. For callers that only have
+/// the file's first bytes (a member inside an `.ipa`); `MachOInfo` reads
+/// the rest of a file on disk.
 enum MachOHeader {
     /// How many leading bytes `architectures(in:)` needs at most.
-    static let prefixLength = 8 + 64 * 32
+    static let prefixLength = FatHeader.maxLength
 
     /// nil when the bytes aren't a Mach-O executable.
     static func architectures(in bytes: [UInt8]) -> [String]? {
-        bytes.withUnsafeBytes { buffer in
-            var cursor = ByteCursor(buffer)
-            guard let magic = try? cursor.u32be() else { return nil }
-            switch magic {
-            case 0xCAFE_BABE, 0xCAFE_BABF:
-                // FAT_MAGIC / FAT_MAGIC_64. Java class files share CAFEBABE;
-                // their "count" is a class version far above any real slice count.
-                guard let count = try? cursor.u32be(), (1...64).contains(count) else { return nil }
-                var names: [String] = []
-                for _ in 0..<count {
-                    guard let type = try? cursor.u32be(), let subtype = try? cursor.u32be() else { return nil }
-                    guard (try? cursor.skip(magic == 0xCAFE_BABE ? 12 : 24)) != nil else { return nil }
-                    names.append(name(type: type, subtype: subtype))
-                }
-                return names
-            case 0xCEFA_EDFE, 0xCFFA_EDFE:
-                // MH_MAGIC / MH_MAGIC_64 stored little-endian.
-                var thin = ByteCursor(buffer, offset: 4)
-                guard let type = try? thin.u32le(), let subtype = try? thin.u32le() else { return nil }
-                return [name(type: type, subtype: subtype)]
-            case 0xFEED_FACE, 0xFEED_FACF:
-                // Big-endian (PowerPC) binaries.
-                guard let type = try? cursor.u32be(), let subtype = try? cursor.u32be() else { return nil }
-                return [name(type: type, subtype: subtype)]
-            default:
-                return nil
-            }
+        if let fat = try? FatHeader(bytes, fileSize: nil) {
+            return fat.slices.map(\.architecture)
+        }
+        guard bytes.count >= 12,
+              let layout = MachOSlice.layout(forMagic: UInt32(bytes[0]) << 24 | UInt32(bytes[1]) << 16
+                                             | UInt32(bytes[2]) << 8 | UInt32(bytes[3])) else {
+            return nil
+        }
+        return bytes.withUnsafeBytes { buffer in
+            var cursor = ByteCursor(buffer, offset: 4)
+            guard let type = try? cursor.u32(layout.isBigEndian),
+                  let subtype = try? cursor.u32(layout.isBigEndian) else { return nil }
+            return [name(type: type, subtype: subtype)]
         }
     }
 
