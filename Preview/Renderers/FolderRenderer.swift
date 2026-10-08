@@ -1,6 +1,9 @@
 import AppKit
+import OSLog
 import SwiftUI
 import SpyglassKit
+
+private let log = Logger(subsystem: "com.spyglass.app.preview", category: "folder")
 
 /// Folders: the folder's icon, item count, total size and date over a
 /// Finder-style list of what's directly inside. The total size is added up
@@ -16,8 +19,10 @@ struct FolderRenderer: PreviewRenderer {
         case .success(let listing) where listing.itemCount == 0:
             return FallbackViews.hosting(FolderCard(url: url, message: "Empty folder"))
         case .success(let listing):
+            log.notice("Listed \(listing.entries.count) of \(listing.itemCount) items")
             return FallbackViews.withNote(FolderPreviewView(url: url, listing: listing), note: Self.note(for: listing))
         case .failure(FolderListingError.unreadable):
+            log.notice("Folder contents unreadable")
             return FallbackViews.hosting(FolderCard(url: url, message: "Spyglass can't read this folder's contents"))
         case .failure(let error):
             throw error

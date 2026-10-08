@@ -198,7 +198,9 @@ final class LocalImageLoader: NSObject, WKURLSchemeHandler {
                                             expectedContentLength: image.data.count, textEncodingName: nil))
                 task.didReceive(image.data)
                 task.didFinish()
+                log.notice("Loaded local image (\(image.data.count) bytes)")
             case .failure(let error):
+                log.notice("Local image unavailable: \(error.localizedDescription, privacy: .public)")
                 task.didFailWithError(error)
             }
         }
