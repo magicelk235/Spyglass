@@ -41,7 +41,7 @@ enum RendererRegistry {
             return JSONLinesRenderer()
 
         case .torrent:
-            return nil
+            return TorrentRenderer()
 
         case .binary:
             return nil
