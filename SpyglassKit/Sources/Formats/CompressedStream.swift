@@ -1,12 +1,30 @@
 import Foundation
 
 public enum CompressionFormat: Sendable {
-    case gzip, bzip2
+    case gzip, bzip2, xz
+
+    /// The bytes every stream (gzip member) of this format starts with.
+    var magic: [UInt8] {
+        switch self {
+        case .gzip: return [0x1F, 0x8B]
+        case .bzip2: return Array("BZh".utf8)
+        case .xz: return [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00]
+        }
+    }
+
+    func makeDecoder() throws -> StreamDecoder {
+        switch self {
+        case .gzip: return try Inflater(.gzip)
+        case .bzip2: return try Bunzipper()
+        case .xz: return try XZDecoder()
+        }
+    }
 }
 
-/// Decompresses a gzip or bzip2 file a chunk at a time and hands each chunk
-/// to a consumer, so nothing holds the whole decompressed stream. Follows
-/// concatenated members (`cat a.gz b.gz`, pbzip2's multi-stream output).
+/// Decompresses a gzip, bzip2 or xz file a chunk at a time and hands each
+/// chunk to a consumer, so nothing holds the whole decompressed stream.
+/// Follows concatenated streams (`cat a.gz b.gz`, pbzip2's multi-stream
+/// output, `xz` streams with padding between them).
 struct DecompressingReader {
     enum Stop: Equatable {
         case endOfStream
@@ -27,7 +45,7 @@ struct DecompressingReader {
     /// handed to the consumer.
     func run(limits: ArchiveLimits,
              _ consume: (UnsafeRawBufferPointer) throws -> Bool) throws -> (stop: Stop, produced: UInt64) {
-        let decoder: StreamDecoder = format == .gzip ? try Inflater(.gzip) : try Bunzipper()
+        let decoder = try format.makeDecoder()
         let deadline = monotonicSeconds() + limits.maxDuration
         let output = UnsafeMutableRawBufferPointer.allocate(byteCount: 256 * 1024, alignment: 16)
         defer { output.deallocate() }
@@ -49,7 +67,17 @@ struct DecompressingReader {
 
         /// After one stream ends: does another start right here?
         func anotherStreamFollows() throws -> Bool {
-            let magic: [UInt8] = format == .gzip ? [0x1F, 0x8B] : Array("BZh".utf8)
+            if format == .xz {
+                // xz allows zero bytes ("stream padding") between streams.
+                var padding = 0
+                while padding < 1 << 20 {
+                    if inputIndex == input.count, !(try refill()) { return false }
+                    guard input[inputIndex] == 0 else { break }
+                    inputIndex += 1
+                    padding += 1
+                }
+            }
+            let magic = format.magic
             if input.count - inputIndex < magic.count + 1 { _ = try refill() }
             return input[inputIndex...].starts(with: magic)
         }
@@ -87,8 +115,9 @@ struct DecompressingReader {
     }
 }
 
-/// Lists a `.gz` / `.bz2`: a compressed tarball lists its members; any
-/// other compressed file shows as its one member with its decompressed size.
+/// Lists a `.gz` / `.bz2` / `.xz`: a compressed tarball lists its members;
+/// any other compressed file shows as its one member with its decompressed
+/// size.
 public enum CompressedArchive {
 
     public static func list(_ url: URL, format: CompressionFormat,
@@ -104,7 +133,13 @@ public enum CompressedArchive {
             guard head.count >= 4, head.starts(with: Array("BZh".utf8)), (0x31...0x39).contains(head[3]) else {
                 throw ArchiveError.unrecognized("Not a bzip2 file")
             }
+        case .xz:
+            guard head.starts(with: CompressionFormat.xz.magic) else { throw ArchiveError.unrecognized("Not an xz file") }
         }
+
+        // xz records every block's uncompressed size in its index, so once
+        // the data turns out not to be a tarball nothing more needs decoding.
+        let indexedSize = format == .xz ? (try? XZIndex.uncompressedSize(of: file)) : nil
 
         // The first 512 decompressed bytes decide: tar header or not.
         var sniffed: [UInt8] = []
@@ -120,7 +155,7 @@ public enum CompressedArchive {
                 rest = UnsafeRawBufferPointer(rebasing: rest[take...])
                 guard sniffed.count == 512 else { return true }
                 isTar = TarParser.looksLikeHeader(sniffed)
-                guard isTar == true else { return true }
+                guard isTar == true else { return indexedSize == nil }
                 do {
                     try sniffed.withUnsafeBytes { try parser.feed($0) }
                 } catch let error as ArchiveError {
@@ -128,7 +163,7 @@ public enum CompressedArchive {
                     return false
                 }
             }
-            guard isTar == true else { return true }
+            guard isTar == true else { return indexedSize == nil }
             do {
                 try parser.feed(rest)
             } catch let error as ArchiveError {
@@ -156,8 +191,11 @@ public enum CompressedArchive {
         var size = produced
         var incomplete: ArchiveListing.Incomplete?
         switch stop {
-        case .endOfStream, .consumer:
+        case .endOfStream:
             break
+        case .consumer:
+            // Only an xz file stops early, once its index gave the size.
+            size = indexedSize ?? produced
         case .byteLimit, .timeLimit:
             incomplete = .workLimit(decompressedBytes: produced)
             // The gzip trailer records the last member's size mod 4 GiB:
@@ -184,8 +222,8 @@ public enum CompressedArchive {
     /// "dump.sql.gz" holds "dump.sql"; "src.tgz" holds "src.tar".
     static func memberName(forArchiveNamed filename: String) -> String {
         let lower = filename.lowercased()
-        let suffixes = [(".tgz", ".tar"), (".tbz2", ".tar"), (".tbz", ".tar"),
-                        (".gz", ""), (".gzip", ""), (".bz2", ""), (".bz", "")]
+        let suffixes = [(".tgz", ".tar"), (".tbz2", ".tar"), (".tbz", ".tar"), (".txz", ".tar"),
+                        (".gz", ""), (".gzip", ""), (".bz2", ""), (".bz", ""), (".xz", "")]
         for (suffix, replacement) in suffixes where lower.hasSuffix(suffix) && lower.count > suffix.count {
             return String(filename.dropLast(suffix.count)) + replacement
         }
@@ -214,5 +252,71 @@ struct GzipHeader {
             let raw = Array(bytes[index..<end])
             name = String(bytes: raw, encoding: .utf8) ?? String(bytes: raw, encoding: .isoLatin1)
         }
+    }
+}
+
+/// The uncompressed size an xz file records in its indexes, read from the
+/// end backwards (padding, footer, index, blocks, header for each stream)
+/// without decompressing anything.
+enum XZIndex {
+    static func uncompressedSize(of file: FileBytes, maxStreams: Int = 1_000) throws -> UInt64 {
+        var end = file.size
+        var total: UInt64 = 0
+        for _ in 0..<maxStreams {
+            // Stream padding: zero bytes in groups of four.
+            var padding = 0
+            while end >= 4, padding < 1 << 20, try file.readExactly(at: end - 4, count: 4, "xz padding") == [0, 0, 0, 0] {
+                end -= 4
+                padding += 4
+            }
+            if end == 0 { return total }
+            guard end >= 24 else { throw ArchiveError.corrupt("The xz stream is too short") }
+
+            let footer = try file.readExactly(at: end - 12, count: 12, "xz footer")
+            guard footer[10] == 0x59, footer[11] == 0x5A else { throw ArchiveError.corrupt("The xz footer is missing") }
+            let backward = UInt64(footer[4]) | UInt64(footer[5]) << 8 | UInt64(footer[6]) << 16 | UInt64(footer[7]) << 24
+            let indexSize = (backward + 1) * 4
+            guard indexSize <= 64 << 20, indexSize + 24 <= end else { throw ArchiveError.corrupt("The xz index size is impossible") }
+            let indexStart = end - 12 - indexSize
+            let index = try file.readExactly(at: indexStart, count: Int(indexSize), "xz index")
+
+            // Each record: the block's unpadded and uncompressed sizes.
+            let blocks = try index.withUnsafeBytes { buffer -> UInt64 in
+                var cursor = ByteCursor(buffer)
+                guard try cursor.u8() == 0 else { throw ArchiveError.corrupt("The xz index is damaged") }
+                var remaining = try varint(&cursor)
+                var blocks: UInt64 = 0
+                while remaining > 0 {
+                    let unpadded = try varint(&cursor)
+                    let uncompressed = try varint(&cursor)
+                    let (sum, overflow) = total.addingReportingOverflow(uncompressed)
+                    guard !overflow, unpadded <= indexStart else { throw ArchiveError.corrupt("The xz index is damaged") }
+                    total = sum
+                    blocks += (unpadded + 3) & ~3
+                    guard blocks <= indexStart else { throw ArchiveError.corrupt("The xz index doesn't match the file") }
+                    remaining -= 1
+                }
+                return blocks
+            }
+            guard blocks + 12 <= indexStart else { throw ArchiveError.corrupt("The xz index doesn't match the file") }
+            let start = indexStart - blocks - 12
+            guard try file.readExactly(at: start, count: 6, "xz header") == CompressionFormat.xz.magic else {
+                throw ArchiveError.corrupt("The xz index doesn't match the file")
+            }
+            end = start
+            if end == 0 { return total }
+        }
+        throw ArchiveError.tooLarge("The xz file has too many streams")
+    }
+
+    /// An xz variable-length integer: 7 bits per byte, low bits first.
+    private static func varint(_ cursor: inout ByteCursor) throws -> UInt64 {
+        var value: UInt64 = 0
+        for shift in stride(from: 0, to: 63, by: 7) {
+            let byte = try cursor.u8()
+            value |= UInt64(byte & 0x7F) << UInt64(shift)
+            if byte & 0x80 == 0 { return value }
+        }
+        throw ArchiveError.corrupt("The xz index is damaged")
     }
 }

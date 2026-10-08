@@ -44,12 +44,16 @@ public final class ZipReader {
     /// Bytes prepended to the archive (a self-extractor stub) that the
     /// recorded offsets don't account for.
     private let shift: UInt64
+    /// Where the central directory starts in the file. An APK keeps its
+    /// signing block right before it.
+    let directoryStart: UInt64
 
     public init(url: URL, maxEntries: Int = defaultEntryLimit) throws {
         file = try FileBytes(url: url)
         let end = try Self.findEnd(in: file)
         let directory = try Self.locateDirectory(end, in: file)
         shift = directory.shift
+        directoryStart = directory.start
         declaredEntryCount = end.totalEntries
 
         let readLength = Int(min(end.directorySize, UInt64(Self.maxCentralDirectoryBytes)))
@@ -113,6 +117,11 @@ public final class ZipReader {
     /// header without inflating the rest.
     public func prefix(of entry: ZipEntry, length: Int) throws -> Data {
         try read(entry, limit: length, wholeMember: false)
+    }
+
+    /// Bytes of the archive file itself, for structures outside any member.
+    func rawBytes(at offset: UInt64, count: Int) throws -> [UInt8] {
+        try file.read(at: offset, count: count)
     }
 
     // MARK: - End of central directory

@@ -1,3 +1,4 @@
+import Compression
 import Foundation
 import zlib
 import CBzip2
@@ -125,10 +126,10 @@ struct ByteCursor {
 }
 
 /// One step of a streaming decompressor: how much input it took, how much
-/// output it wrote, whether the compressed stream (one gzip member or
-/// bzip2 stream) ended, and whether it failed. The output written before a
-/// failure is valid as far as it goes: a bad checksum is only found after
-/// the data it covers.
+/// output it wrote, whether the compressed stream (one gzip member, bzip2
+/// stream or xz stream) ended, and whether it failed. The output written
+/// before a failure is valid as far as it goes: a bad checksum is only
+/// found after the data it covers.
 struct DecodeStep {
     var consumed: Int
     var produced: Int
@@ -253,6 +254,58 @@ final class Bunzipper: StreamDecoder {
 
     func reset() throws {
         if active { BZ2_bzDecompressEnd(stream) }
+        active = false
+        try start()
+    }
+}
+
+/// Streaming xz decompression through the Compression framework, whose
+/// LZMA decoder reads the xz container (one stream per decoder).
+final class XZDecoder: StreamDecoder {
+    private let stream: UnsafeMutablePointer<compression_stream>
+    private var active = false
+    /// Stands in for an empty buffer's missing base address.
+    private static let empty = UnsafeMutablePointer<UInt8>.allocate(capacity: 1)
+
+    init() throws {
+        stream = .allocate(capacity: 1)
+        do {
+            try start()
+        } catch {
+            stream.deallocate()
+            throw error
+        }
+    }
+
+    deinit {
+        if active { compression_stream_destroy(stream) }
+        stream.deallocate()
+    }
+
+    private func start() throws {
+        guard compression_stream_init(stream, COMPRESSION_STREAM_DECODE, COMPRESSION_LZMA) == COMPRESSION_STATUS_OK else {
+            throw ArchiveError.unsupported("xz couldn't start")
+        }
+        active = true
+    }
+
+    func decode(_ input: UnsafeRawBufferPointer, into output: UnsafeMutableRawBufferPointer) -> DecodeStep {
+        stream.pointee.src_ptr = input.baseAddress?.assumingMemoryBound(to: UInt8.self) ?? UnsafePointer(Self.empty)
+        stream.pointee.src_size = input.count
+        stream.pointee.dst_ptr = output.baseAddress?.assumingMemoryBound(to: UInt8.self) ?? Self.empty
+        stream.pointee.dst_size = output.count
+        let status = compression_stream_process(stream, 0)
+        var step = DecodeStep(consumed: input.count - stream.pointee.src_size,
+                              produced: output.count - stream.pointee.dst_size,
+                              ended: status == COMPRESSION_STATUS_END)
+        if status == COMPRESSION_STATUS_ERROR {
+            step.failure = .corrupt("The compressed data is corrupt")
+        }
+        return step
+    }
+
+    func reset() throws {
+        if active { compression_stream_destroy(stream) }
         active = false
         try start()
     }
