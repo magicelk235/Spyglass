@@ -230,6 +230,32 @@
                 <string>public.yaml</string>
                 <string>public.zip-archive</string>
                 <string>public.zsh-script</string>
+                <string>public.folder</string>
+                <string>com.apple.framework</string>
+                <string>com.spyglass.ipynb</string>
+                <string>public.ndjson</string>
+                <string>com.spyglass.jsonl</string>
+                <string>org.tukaani.xz-archive</string>
+                <string>org.tukaani.tar-xz-archive</string>
+                <string>com.sun.java-archive</string>
+                <string>com.sun.web-application-archive</string>
+                <string>com.spyglass.ear</string>
+                <string>public.archive.apk</string>
+                <string>com.spyglass.aab</string>
+                <string>com.spyglass.whl</string>
+                <string>com.spyglass.nupkg</string>
+                <string>com.spyglass.vsix</string>
+                <string>com.spyglass.xpi</string>
+                <string>public.iso-image</string>
+                <string>com.looq.iso</string>
+                <string>com.spyglass.torrent</string>
+                <string>com.looq.torrent</string>
+                <string>com.apple.mobileconfig</string>
+                <string>public.unix-executable</string>
+                <string>com.apple.mach-o-dylib</string>
+                <string>public.object-code</string>
+                <string>com.spyglass.shared-object</string>
+                <string>com.spyglass.static-library</string>
             </array>
         </dict>
     </dict>

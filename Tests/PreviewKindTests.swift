@@ -66,6 +66,48 @@ final class PreviewKindTests: XCTestCase {
         XCTAssertEqual(PreviewKind.code(language: nil).group, .code)
         XCTAssertEqual(PreviewKind.archive(.bzip2).group, .archive)
         XCTAssertEqual(PreviewKind.bundle(.dmg).group, .bundle)
+        XCTAssertEqual(PreviewKind.folder.group, .folder)
+        XCTAssertEqual(PreviewKind.notebook.group, .notebook)
+        XCTAssertEqual(PreviewKind.jsonLines.group, .table)
+        XCTAssertEqual(PreviewKind.torrent.group, .archive)
+        XCTAssertEqual(PreviewKind.binary.group, .binary)
+    }
+
+    func testRoutesNewFormats() {
+        let cases: [(String, String?, PreviewKind)] = [
+            ("analysis.ipynb", nil, .notebook),
+            ("events.jsonl", nil, .jsonLines),
+            ("events.ndjson", nil, .jsonLines),
+            ("data.xz", nil, .archive(.xz)),
+            ("src.tar.xz", nil, .archive(.xz)),
+            ("src.txz", nil, .archive(.xz)),
+            ("app.jar", nil, .archive(.zip)),
+            ("site.war", nil, .archive(.zip)),
+            ("app.apk", nil, .archive(.zip)),
+            ("pkg-1.0-py3-none-any.whl", nil, .archive(.zip)),
+            ("Lib.1.0.nupkg", nil, .archive(.zip)),
+            ("ext.vsix", nil, .archive(.zip)),
+            ("addon.xpi", nil, .archive(.zip)),
+            ("ubuntu.iso", nil, .archive(.iso)),
+            ("linux.torrent", nil, .torrent),
+            ("Wifi.mobileconfig", nil, .structured(.plist)),
+            ("libz.dylib", nil, .binary),
+            ("libfoo.so", nil, .binary),
+            ("main.o", nil, .binary),
+            ("libfoo.a", nil, .binary),
+            ("mytool", "public.unix-executable", .binary),
+            ("Sparkle.framework", nil, .bundle(.framework)),
+        ]
+        for (name, uti, kind) in cases {
+            XCTAssertEqual(PreviewKind.route(filename: name, uti: uti), kind, name)
+        }
+    }
+
+    /// A folder is a folder whatever its name looks like.
+    func testFolderUTIWinsOverItsName() {
+        XCTAssertEqual(PreviewKind.route(filename: "Projects", uti: "public.folder"), .folder)
+        XCTAssertEqual(PreviewKind.route(filename: "notes.md", uti: "public.folder"), .folder)
+        XCTAssertEqual(PreviewKind.route(filename: "backup.zip", uti: "public.folder"), .folder)
     }
 
     /// Every type the extension claims in Info.plist must route somewhere,

@@ -118,6 +118,10 @@ public enum ArchiveReader {
             return try CompressedArchive.list(url, format: .gzip, limits: limits)
         case .bzip2:
             return try CompressedArchive.list(url, format: .bzip2, limits: limits)
+        case .xz:
+            throw ArchiveError.unsupported("xz archives are not supported yet")
+        case .iso:
+            throw ArchiveError.unsupported("ISO images are not supported yet")
         }
     }
 

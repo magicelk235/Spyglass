@@ -53,6 +53,7 @@ struct BundleCard: Sendable {
         case .ipa: return ipa(try BundleInfo.readIPA(at: url))
         case .pkg: return package(try PackageInfo.read(at: url), url: url)
         case .dmg: return diskImage(try DiskImageInfo.read(at: url), url: url)
+        case .framework: throw RenderError.unsupported("frameworks are not supported yet")
         }
     }
 

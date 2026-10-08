@@ -33,6 +33,21 @@ enum RendererRegistry {
 
         case .bundle:
             return BundleRenderer()
+
+        case .notebook:
+            return nil
+
+        case .jsonLines:
+            return nil
+
+        case .torrent:
+            return nil
+
+        case .binary:
+            return nil
+
+        case .folder:
+            return nil
         }
     }
 }
