@@ -24,16 +24,28 @@ final class AppGroupTests: XCTestCase {
         dirs.forEach { try? FileManager.default.removeItem(at: $0) }
     }
 
-    /// The identifier the code opens must be the one both targets are
-    /// entitled to, or the extension silently loses the license and cache.
-    func testBothEntitlementsUseTheSharedIdentifier() throws {
+    /// The identifier the code opens must be the one every target is
+    /// entitled to, or the extensions silently lose the license and cache.
+    func testAllEntitlementsUseTheSharedIdentifier() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        for path in ["App/App.entitlements", "Preview/Preview.entitlements"] {
+        for path in ["App/App.entitlements", "Preview/Preview.entitlements", "Thumbnail/Thumbnail.entitlements"] {
             let plist = try XCTUnwrap(NSDictionary(contentsOf: root.appendingPathComponent(path)))
             let groups = try XCTUnwrap(plist["com.apple.security.application-groups"] as? [String], path)
             XCTAssertTrue(groups.contains(AppGroup.identifier), path)
         }
         XCTAssertTrue(AppGroup.identifier.hasPrefix("V8K8L3ZSD5."))
+    }
+
+    func testDriveCacheHidesPDFsWithoutALicense() throws {
+        let licensed = suite(), unlicensed = suite()
+        licensed.set(true, forKey: "isPro")
+        let container = try dir()
+        try PreviewCache(directory: container).store(docID: "DOC", modifiedTime: "t", pdf: Data("pdf".utf8))
+
+        XCTAssertEqual(DriveCache.licensedPDF(docID: "DOC", license: LicenseStore(defaults: licensed), container: container),
+                       Data("pdf".utf8))
+        XCTAssertNil(DriveCache.licensedPDF(docID: "DOC", license: LicenseStore(defaults: unlicensed), container: container))
+        XCTAssertNil(DriveCache.licensedPDF(docID: "OTHER", license: LicenseStore(defaults: licensed), container: container))
     }
 
     func testMigrationCopiesLicenseAndMovesPreviews() throws {

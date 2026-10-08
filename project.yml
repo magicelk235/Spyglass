@@ -80,6 +80,8 @@ targets:
       - target: SpyglassKit
       - target: SpyglassPreview
         embed: true
+      - target: SpyglassThumbnail
+        embed: true
 
   # Quick Look Preview Extension (.appex embedded in the app).
   SpyglassPreview:
@@ -101,6 +103,20 @@ targets:
         INFOPLIST_FILE: Preview/Info.plist
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGN_ENTITLEMENTS: Preview/Preview.entitlements
+    dependencies:
+      - target: SpyglassKit
+
+  # Finder thumbnails for Google stubs, drawn from the cached Drive PDF.
+  SpyglassThumbnail:
+    type: app-extension
+    platform: macOS
+    sources: [Thumbnail]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.spyglass.app.thumbnail
+        INFOPLIST_FILE: Thumbnail/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: Thumbnail/Thumbnail.entitlements
     dependencies:
       - target: SpyglassKit
 

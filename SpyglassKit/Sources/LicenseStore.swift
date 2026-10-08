@@ -20,6 +20,10 @@ public struct LicenseStore {
         defaults = UserDefaults(suiteName: groupID)
     }
 
+    init(defaults: UserDefaults?) {
+        self.defaults = defaults
+    }
+
     /// True once a key has been verified. Read by FetchWorker (app side).
     public var isPro: Bool { defaults?.bool(forKey: Self.proKey) ?? false }
 
