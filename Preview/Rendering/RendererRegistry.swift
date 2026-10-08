@@ -29,7 +29,7 @@ enum RendererRegistry {
             return nil
 
         case .archive:
-            return nil
+            return ArchiveRenderer()
 
         case .bundle:
             return nil
