@@ -1,0 +1,6 @@
+[package]
+name = "spyglass"
+version = "1.0.0"
+
+[dependencies]
+serde = "1"

@@ -9,9 +9,12 @@ private let log = Logger(subsystem: "com.spyglass.app.preview", category: "previ
 
 /// Quick Look Preview Extension entry point.
 ///
+/// Every file is routed first. Google stubs and `.webloc` bookmarks take the
+/// Drive path below; everything else goes to `FormatPreview`.
+///
 /// The extension's sandbox is read-only in practice: no DNS (every host fails
 /// with -1003), no group-container writes, no shared-prefs writes, no
-/// launching the app. So the extension is a pure cache READER. The app (a
+/// launching the app. So the Drive path is a pure cache READER. The app (a
 /// menu-bar agent) discovers stub files on disk, pre-fetches their PDF
 /// exports, and keeps the shared App Group cache warm. This controller
 /// renders the cached PDF if present, else the Tier 0 card. The preview is
@@ -24,6 +27,14 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
 
     func preparePreviewOfFile(at url: URL) async throws {
         log.notice("Preview invoked for \(url.lastPathComponent, privacy: .public)")
+
+        let uti = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
+        let kind = PreviewKind.route(filename: url.lastPathComponent, uti: uti)
+        guard kind == .googleStub || kind == .webloc else {
+            let settings = PreviewSettings.load()
+            install(await FormatPreview.makeView(kind: kind, url: url, settings: settings))
+            return
+        }
 
         // Parse stub — failure shows UnparseableView instead of throwing.
         let stub: Stub
@@ -96,11 +107,14 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
 
     /// Installs a SwiftUI hosting view as the view's sole subview.
     private func show(_ root: AnyView) {
-        let hosting = NSHostingView(rootView: root)
-        hosting.frame = view.bounds
-        hosting.autoresizingMask = [.width, .height]
+        install(NSHostingView(rootView: root))
+    }
+
+    private func install(_ content: NSView) {
+        content.frame = view.bounds
+        content.autoresizingMask = [.width, .height]
         view.subviews.forEach { $0.removeFromSuperview() }
-        view.addSubview(hosting)
+        view.addSubview(content)
     }
 }
 

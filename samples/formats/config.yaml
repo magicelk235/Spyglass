@@ -1,0 +1,5 @@
+name: spyglass
+formats:
+  - markdown
+  - code
+limits: {code: 2MB, tsv: 10000}

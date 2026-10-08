@@ -32,8 +32,11 @@ struct ContentView: View {
                 .formStyle(.grouped)
             }
             Divider()
-            HStack {
+            HStack(spacing: 12) {
                 Spacer()
+                Button("Settings…") { SettingsWindowController.show() }
+                    .keyboardShortcut(",")
+                    .buttonStyle(.bordered)
                 Button("Quit Spyglass") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
                     .buttonStyle(.bordered)

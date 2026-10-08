@@ -17,6 +17,8 @@ settings:
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: "V8K8L3ZSD5"
     ENABLE_HARDENED_RUNTIME: YES
+    # System bzip2 has no Swift module in the SDK; this module map exposes it.
+    SWIFT_INCLUDE_PATHS: $(SRCROOT)/SpyglassKit/CBzip2
 
 targets:
   # Shared, unit-testable logic used by both the app and the extension.
@@ -68,6 +70,28 @@ targets:
     dependencies:
       - target: SpyglassKit
 
+  # Dev tool: renders files through FormatPreview and writes PNGs, so
+  # renderers can be checked visually without installing the extension.
+  # Compiles the extension's rendering sources; never shipped.
+  PreviewHarness:
+    type: application
+    platform: macOS
+    sources:
+      - path: Tools/PreviewHarness
+      - path: Preview/Rendering
+      - path: Preview/Renderers
+        optional: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.spyglass.preview-harness
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        ENABLE_HARDENED_RUNTIME: NO
+    dependencies:
+      - target: SpyglassKit
+
   # Unit tests for the pure logic in SpyglassKit.
   SpyglassKitTests:
     type: bundle.unit-test
@@ -98,3 +122,7 @@ schemes:
     test:
       targets:
         - SpyglassKitTests
+  PreviewHarness:
+    build:
+      targets:
+        PreviewHarness: all
