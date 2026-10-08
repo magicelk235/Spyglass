@@ -4,7 +4,7 @@
 // It runs outside the extension sandbox: use scripts/ql-smoke.sh to check
 // routing and sandbox behavior.
 //
-//   PreviewHarness [--dark|--light] [--size WxH] [--wait SECONDS] --out DIR FILE...
+//   PreviewHarness [--dark|--light] [--size WxH] [--wait SECONDS] [--code-size PT] --out DIR FILE...
 
 import AppKit
 import WebKit
@@ -16,6 +16,7 @@ var size = NSSize(width: 900, height: 640)
 var wait = 1.5
 var outDir = URL(fileURLWithPath: "/tmp/spyglass-harness", isDirectory: true)
 var files: [URL] = []
+var codeSize: Double?
 while !args.isEmpty {
     let arg = args.removeFirst()
     switch arg {
@@ -25,6 +26,7 @@ while !args.isEmpty {
         let parts = args.removeFirst().split(separator: "x").compactMap { Double($0) }
         if parts.count == 2 { size = NSSize(width: parts[0], height: parts[1]) }
     case "--wait": wait = Double(args.removeFirst()) ?? wait
+    case "--code-size": codeSize = Double(args.removeFirst())
     case "--out": outDir = URL(fileURLWithPath: args.removeFirst(), isDirectory: true)
     default: files.append(URL(fileURLWithPath: arg).standardizedFileURL)
     }
@@ -80,7 +82,9 @@ func snapshot(_ view: NSView) async -> NSBitmapImageRep? {
 
 Task { @MainActor in
     try? FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
-    let settings = PreviewSettings.load()
+    // Default settings, so renders don't depend on this Mac's saved preferences.
+    var settings = PreviewSettings()
+    if let codeSize { settings.codeFontSize = codeSize }
     let suffix = appearanceName == .darkAqua ? "dark" : "light"
     for url in files {
         let uti = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
@@ -94,6 +98,12 @@ Task { @MainActor in
         view.autoresizingMask = [.width, .height]
         container.addSubview(view)
         window.contentView = container
+        // SwiftUI hosting views hug their ideal size above the window's
+        // stay-put priority, which would shrink the window; hold it at --size.
+        NSLayoutConstraint.activate([
+            container.widthAnchor.constraint(equalToConstant: size.width),
+            container.heightAnchor.constraint(equalToConstant: size.height),
+        ])
         container.layoutSubtreeIfNeeded()
         try? await Task.sleep(for: .seconds(wait))
         let out = outDir.appendingPathComponent("\(url.lastPathComponent)-\(suffix).png")

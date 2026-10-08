@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build PreviewHarness and render files to PNGs (see Tools/PreviewHarness).
 #
-#   scripts/harness.sh [--dark|--light] [--size WxH] [--wait S] [--out DIR] FILE...
+#   scripts/harness.sh [--dark|--light] [--size WxH] [--wait S] [--code-size PT] [--out DIR] FILE...
 #
 # Set DD to use a different derived-data folder (parallel worktrees).
 
@@ -11,7 +11,7 @@ ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --dark|--light) ARGS+=("$1") ;;
-    --size|--wait) ARGS+=("$1" "$2"); shift ;;
+    --size|--wait|--code-size) ARGS+=("$1" "$2"); shift ;;
     --out) ARGS+=("$1" "$(mkdir -p "$2" && cd "$2" && pwd)"); shift ;;
     *) ARGS+=("$(cd "$(dirname "$1")" && pwd)/$(basename "$1")") ;;
   esac
