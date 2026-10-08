@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 public enum PrettyError: Error, Equatable {
     case malformed(String)
@@ -14,6 +15,20 @@ public struct PrettyText: Equatable, Sendable {
     public init(text: String, isCut: Bool) {
         self.text = text
         self.isCut = isCut
+    }
+}
+
+/// A property list that came wrapped in CMS signed data, as configuration
+/// profiles usually are.
+public struct SignedPropertyList: Equatable, Sendable {
+    /// The property list as XML text.
+    public var text: PrettyText
+    /// Common name of the signing certificate, when it has one.
+    public var signer: String?
+
+    public init(text: PrettyText, signer: String?) {
+        self.text = text
+        self.signer = signer
     }
 }
 
@@ -71,6 +86,11 @@ public enum Pretty {
             if rest.first == "\n" { rest = rest.dropFirst() }
             output = String(rest)
         }
+        // It also follows a one-line DOCTYPE with a blank line.
+        if output.hasPrefix("<!DOCTYPE"), let lineEnd = output.firstIndex(of: "\n"),
+           output[..<lineEnd].hasSuffix(">"), output[output.index(after: lineEnd)...].first == "\n" {
+            output.remove(at: lineEnd)
+        }
         if let declaration = xmlDeclaration(in: source) {
             output = declaration + "\n" + output
         }
@@ -102,6 +122,55 @@ public enum Pretty {
         else { throw PrettyError.malformed("property list can't be written as XML") }
         guard xmlData.count <= outputLimit else { throw PrettyError.tooLarge }
         return xml
+    }
+
+    /// Unwraps CMS (PKCS #7) signed data and formats the property list inside
+    /// for display. XML is always re-indented, since whatever signed it
+    /// wrote it by machine; binary becomes XML; OpenStep text stays as is.
+    ///
+    /// Returns nil when `data` isn't signed data with its content embedded,
+    /// which includes every unsigned property list. Throws when the signed
+    /// content isn't a property list. The signature is not checked.
+    public static func signedPropertyList(_ data: Data, outputLimit: Int = 8 << 20) throws -> SignedPropertyList? {
+        // DER signed data starts with a SEQUENCE; no property list does.
+        guard data.first == 0x30 else { return nil }
+        var created: CMSDecoder?
+        guard CMSDecoderCreate(&created) == errSecSuccess, let decoder = created else { return nil }
+        let updated = data.withUnsafeBytes { CMSDecoderUpdateMessage(decoder, $0.baseAddress!, $0.count) }
+        var content: CFData?
+        guard updated == errSecSuccess, CMSDecoderFinalizeMessage(decoder) == errSecSuccess,
+              CMSDecoderCopyContent(decoder, &content) == errSecSuccess, let content else { return nil }
+        let inner = content as Data
+
+        guard (try? PropertyListSerialization.propertyList(from: inner, format: nil)) != nil else {
+            throw PrettyError.malformed("the signed content isn't a property list")
+        }
+        let text: PrettyText
+        if inner.starts(with: Array("bplist".utf8)) {
+            text = PrettyText(text: try xmlPropertyList(from: inner, outputLimit: outputLimit), isCut: false)
+        } else if let decoded = TextSniffer.decode(inner) {
+            let start = decoded.drop { $0 == "\u{FEFF}" || $0.isWhitespace }
+            if start.hasPrefix("<"), let formatted = try? xml(decoded, outputLimit: outputLimit) {
+                text = formatted
+            } else {
+                text = PrettyText(text: decoded, isCut: false)
+            }
+        } else {
+            throw PrettyError.malformed("the signed property list isn't text")
+        }
+        return SignedPropertyList(text: text, signer: signerName(decoder))
+    }
+
+    private static func signerName(_ decoder: CMSDecoder) -> String? {
+        var signers = 0
+        var certificate: SecCertificate?
+        guard CMSDecoderGetNumSigners(decoder, &signers) == errSecSuccess, signers > 0,
+              CMSDecoderCopySignerCert(decoder, 0, &certificate) == errSecSuccess, let certificate else { return nil }
+        var name: CFString?
+        if SecCertificateCopyCommonName(certificate, &name) == errSecSuccess, let name, CFStringGetLength(name) > 0 {
+            return name as String
+        }
+        return SecCertificateCopySubjectSummary(certificate) as String?
     }
 
     /// Roughly how many bytes the XML form of a decoded property list takes:

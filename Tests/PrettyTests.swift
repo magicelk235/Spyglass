@@ -287,6 +287,17 @@ final class PrettyTests: XCTestCase {
         """), text)
     }
 
+    func testNoBlankLineAfterTheDoctype() throws {
+        let input = #"<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><true/></plist>"#
+        XCTAssertEqual(try Pretty.xml(input).text, """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+                <true/>
+            </plist>
+            """)
+    }
+
     func testDeepXMLIsRejectedBeforeFormatting() {
         let input = String(repeating: "<a>", count: 2000) + String(repeating: "</a>", count: 2000)
         XCTAssertThrowsError(try Pretty.xml(input, outputLimit: 100_000)) { error in
