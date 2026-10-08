@@ -31,8 +31,10 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         let uti = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
         let kind = PreviewKind.route(filename: url.lastPathComponent, uti: uti)
         guard kind == .googleStub || kind == .webloc else {
-            let settings = PreviewSettings.load()
-            install(await FormatPreview.makeView(kind: kind, url: url, settings: settings))
+            install(await FormatPreview.makeView(kind: kind, url: url, settings: PreviewSettings.load()))
+            watcher = FileWatcher(url: url) { [weak self] in
+                Task { @MainActor in await self?.reload(url: url, kind: kind) }
+            }
             return
         }
 
@@ -105,6 +107,29 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         needsSnapToTop = false   // one-shot: leave the user free to scroll after
         let top = CGPoint(x: 0, y: first.bounds(for: .mediaBox).height)
         pdfView.go(to: PDFDestination(page: first, at: top))
+    }
+
+    // MARK: - Live reload
+
+    private var watcher: FileWatcher?
+    private var reloading = false
+    private var reloadAgain = false
+
+    /// Re-renders the open preview after its file changed on disk, keeping
+    /// the scroll position. Changes that land mid-render queue one more pass.
+    private func reload(url: URL, kind: PreviewKind?) async {
+        guard !reloading else { reloadAgain = true; return }
+        reloading = true
+        defer { reloading = false }
+        repeat {
+            reloadAgain = false
+            var position: ScrollMemory.Position?
+            if let current = view.subviews.first { position = await ScrollMemory.capture(in: current) }
+            let content = await FormatPreview.makeView(kind: kind, url: url, settings: PreviewSettings.load())
+            install(content)
+            ScrollMemory.restore(position, in: content)
+            log.notice("Reloaded \(url.lastPathComponent, privacy: .public)")
+        } while reloadAgain
     }
 
     /// Installs a SwiftUI hosting view as the view's sole subview.
