@@ -18,7 +18,7 @@ Select a file in Finder and press Space. Instead of a big icon, Spyglass shows y
 - Binaries: executables, dylibs, object files and static libraries, with their architectures, minimum macOS and linked libraries.
 - Folders: a Finder-style list with icons, item count and total size.
 - Torrents: files, trackers and the info hash.
-- Google Drive: `.gdoc`, `.gsheet`, `.gslides`, `.gdraw`, `.gform` and `.gsite` files, plus the `.webloc` bookmarks some Drive clients write.
+- Google Drive: `.gdoc`, `.gsheet`, `.gslides`, `.gdraw`, `.gform` and `.gsite` files, plus the `.webloc` bookmarks some Drive clients write. Every one gets an info card. On the Drive plan, Docs, Sheets, Slides and Drawings show the real document; Google can't export Forms and Sites, so those keep the card.
 
 An open preview updates when you save the file. In Settings you can pick a light or dark theme, set the code font size, or switch off any format.
 
