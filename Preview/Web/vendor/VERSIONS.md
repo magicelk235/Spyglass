@@ -1,9 +1,10 @@
 # Vendored web libraries
 
-The web previews (code, structured text, Markdown, diffs) load these from the
-extension bundle; nothing is fetched at run time. Versions are pinned. To
-update one, change its version and SHA-256 in `scripts/vendor-web.sh`, rerun
-the script, and update this file. Each folder keeps the library's LICENSE.
+The web previews (code, structured text, Markdown, diffs, notebooks) load
+these from the extension bundle; nothing is fetched at run time. Versions are
+pinned. To update one, change its version and SHA-256 in
+`scripts/vendor-web.sh`, rerun the script, and update this file. Each folder
+keeps the library's LICENSE.
 
 | Library | Version | License | Source |
 |---|---|---|---|

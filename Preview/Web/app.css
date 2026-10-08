@@ -1,4 +1,4 @@
-/* Spyglass web previews: code, Markdown and diffs. Colors follow
+/* Spyglass web previews: code, Markdown, diffs and notebooks. Colors follow
    prefers-color-scheme, which WebKit takes from the hosting view's
    appearance, so the Settings theme override needs nothing here. */
 
@@ -31,6 +31,28 @@
   --important: #8250df;
   --warning: #9a6700;
   --caution: #d1242f;
+
+  /* Notebooks: prompts, the error tint, and a terminal palette (GitHub's,
+     with a lighter yellow) whose colors stay readable as text. */
+  --prompt-in: #303f9f;
+  --prompt-out: #d84315;
+  --error-bg: #fdecec;
+  --ansi-0: #24292f;
+  --ansi-1: #cf222e;
+  --ansi-2: #116329;
+  --ansi-3: #9a6700;
+  --ansi-4: #0969da;
+  --ansi-5: #8250df;
+  --ansi-6: #1b7c83;
+  --ansi-7: #6e7781;
+  --ansi-8: #57606a;
+  --ansi-9: #a40e26;
+  --ansi-10: #1a7f37;
+  --ansi-11: #7d4e00;
+  --ansi-12: #218bff;
+  --ansi-13: #a475f9;
+  --ansi-14: #3192aa;
+  --ansi-15: #8c959f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -58,6 +80,26 @@
     --important: #ab7df8;
     --warning: #d29922;
     --caution: #f85149;
+
+    --prompt-in: #8c9eff;
+    --prompt-out: #ff8a65;
+    --error-bg: rgba(248, 81, 73, 0.14);
+    --ansi-0: #6e7681;
+    --ansi-1: #ff7b72;
+    --ansi-2: #3fb950;
+    --ansi-3: #d29922;
+    --ansi-4: #58a6ff;
+    --ansi-5: #bc8cff;
+    --ansi-6: #39c5cf;
+    --ansi-7: #b1bac4;
+    --ansi-8: #8b949e;
+    --ansi-9: #ffa198;
+    --ansi-10: #56d364;
+    --ansi-11: #e3b341;
+    --ansi-12: #79c0ff;
+    --ansi-13: #d2a8ff;
+    --ansi-14: #56d4dd;
+    --ansi-15: #f0f6fc;
   }
 }
 
@@ -464,3 +506,188 @@ table.diff tr.hunk td {
 }
 table.diff tr.eof td.text { color: var(--muted); font-style: italic; }
 table.diff tr.eof .marker { font-style: normal; }
+
+/* Notebooks */
+
+.nb-view {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 20px 28px 48px 12px;
+  /* Prompts are measured in this font's character widths. */
+  font: var(--code-size)/1.45 var(--mono);
+}
+
+.nb-cell { margin: 0 0 14px; }
+
+.nb-input, .nb-output, .nb-markdown, .nb-raw {
+  display: grid;
+  grid-template-columns: calc(var(--prompt-chars, 7) * 1ch) minmax(0, 1fr);
+  column-gap: 10px;
+}
+
+.nb-prompt {
+  text-align: right;
+  white-space: pre;
+  color: var(--faint);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.nb-input > .nb-prompt { padding-top: 9px; color: var(--prompt-in); }
+.nb-output > .nb-prompt { padding-top: 4px; color: var(--prompt-out); }
+
+.nb-source, .nb-raw-source {
+  margin: 0;
+  padding: 8px 12px;
+  overflow-x: auto;
+  font: inherit;
+  tab-size: 4;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.nb-source { background: var(--subtle-bg); }
+.nb-source > code { display: block; min-height: 1.45em; font: inherit; }
+.nb-raw-source { color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.nb-markdown { margin-bottom: 18px; }
+.nb-markdown > .markdown-body:empty { display: none; }
+
+.nb-outputs { margin-top: 6px; }
+.nb-output + .nb-output { margin-top: 2px; }
+.nb-output-body {
+  min-width: 0;
+  padding: 4px 0 4px 13px;
+  overflow-x: auto;
+}
+
+.nb-text {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.nb-text.collapsed {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 4.5em), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 4.5em), transparent);
+}
+
+.nb-output-body.nb-stderr, .nb-output-body.nb-error {
+  padding: 6px 13px;
+  background: var(--error-bg);
+  border-radius: 6px;
+}
+
+.nb-toggle {
+  display: block;
+  margin: 4px 0 0;
+  padding: 0;
+  font: 12px var(--sans);
+  color: var(--accent);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.nb-toggle:hover { text-decoration: underline; }
+
+.nb-output-body > img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+/* Plots are drawn for white paper, often on a transparent background. */
+@media (prefers-color-scheme: dark) {
+  .nb-output-body > img:not([data-background="dark"]) { background: #fff; }
+}
+@media (prefers-color-scheme: light) {
+  .nb-output-body > img[data-background="dark"] { background: #1e1e1e; }
+}
+
+.nb-omitted {
+  display: inline-block;
+  padding: 16px 24px;
+  font: 12px var(--sans);
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+}
+
+.nb-output-body.markdown-body { font-size: 14px; }
+
+.nb-latex {
+  overflow-y: hidden;
+  font: 15px/1.5 var(--sans);
+}
+.nb-latex .katex-display { margin: 0.25em 0; text-align: left; }
+.nb-latex .katex-display > .katex { text-align: left; }
+
+/* HTML outputs, mostly pandas tables. */
+.nb-html { font: 13px/1.5 var(--sans); }
+.nb-html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.nb-html th, .nb-html td {
+  padding: 5px 10px;
+  text-align: right;
+  vertical-align: middle;
+  border: none;
+}
+.nb-html th { font-weight: 600; }
+.nb-html thead { border-bottom: 1px solid var(--border); vertical-align: bottom; }
+.nb-html tbody tr:nth-child(odd) { background: var(--subtle-bg); }
+.nb-html img { max-width: 100%; }
+.nb-html a[href] { color: var(--accent); text-decoration: none; }
+
+/* ANSI colors in streams and tracebacks. Backgrounds are tints so the text
+   on them stays readable in both themes. */
+.ansi-fg-0 { color: var(--ansi-0); }
+.ansi-fg-1 { color: var(--ansi-1); }
+.ansi-fg-2 { color: var(--ansi-2); }
+.ansi-fg-3 { color: var(--ansi-3); }
+.ansi-fg-4 { color: var(--ansi-4); }
+.ansi-fg-5 { color: var(--ansi-5); }
+.ansi-fg-6 { color: var(--ansi-6); }
+.ansi-fg-7 { color: var(--ansi-7); }
+.ansi-fg-8 { color: var(--ansi-8); }
+.ansi-fg-9 { color: var(--ansi-9); }
+.ansi-fg-10 { color: var(--ansi-10); }
+.ansi-fg-11 { color: var(--ansi-11); }
+.ansi-fg-12 { color: var(--ansi-12); }
+.ansi-fg-13 { color: var(--ansi-13); }
+.ansi-fg-14 { color: var(--ansi-14); }
+.ansi-fg-15 { color: var(--ansi-15); }
+.ansi-bg-0 { background-color: color-mix(in srgb, var(--ansi-0) 35%, transparent); }
+.ansi-bg-1 { background-color: color-mix(in srgb, var(--ansi-1) 35%, transparent); }
+.ansi-bg-2 { background-color: color-mix(in srgb, var(--ansi-2) 35%, transparent); }
+.ansi-bg-3 { background-color: color-mix(in srgb, var(--ansi-3) 35%, transparent); }
+.ansi-bg-4 { background-color: color-mix(in srgb, var(--ansi-4) 35%, transparent); }
+.ansi-bg-5 { background-color: color-mix(in srgb, var(--ansi-5) 35%, transparent); }
+.ansi-bg-6 { background-color: color-mix(in srgb, var(--ansi-6) 35%, transparent); }
+.ansi-bg-7 { background-color: color-mix(in srgb, var(--ansi-7) 35%, transparent); }
+.ansi-bg-8 { background-color: color-mix(in srgb, var(--ansi-8) 35%, transparent); }
+.ansi-bg-9 { background-color: color-mix(in srgb, var(--ansi-9) 35%, transparent); }
+.ansi-bg-10 { background-color: color-mix(in srgb, var(--ansi-10) 35%, transparent); }
+.ansi-bg-11 { background-color: color-mix(in srgb, var(--ansi-11) 35%, transparent); }
+.ansi-bg-12 { background-color: color-mix(in srgb, var(--ansi-12) 35%, transparent); }
+.ansi-bg-13 { background-color: color-mix(in srgb, var(--ansi-13) 35%, transparent); }
+.ansi-bg-14 { background-color: color-mix(in srgb, var(--ansi-14) 35%, transparent); }
+.ansi-bg-15 { background-color: color-mix(in srgb, var(--ansi-15) 35%, transparent); }
+.ansi-bold { font-weight: 600; }
+.ansi-faint { opacity: 0.7; }
+.ansi-italic { font-style: italic; }
+.ansi-underline { text-decoration: underline; }
+
+/* Colors outside the 16 come with a variant for each theme (see runHTML). */
+.ansi-rgb { color: var(--rgb-light); }
+@media (prefers-color-scheme: dark) {
+  .ansi-rgb { color: var(--rgb-dark); }
+}
+
+/* Narrow windows drop the prompt column. */
+@media (max-width: 520px) {
+  .nb-view { padding: 12px; }
+  .nb-input, .nb-output, .nb-markdown, .nb-raw { grid-template-columns: minmax(0, 1fr); }
+  .nb-prompt { display: none; }
+}

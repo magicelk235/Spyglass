@@ -9,7 +9,7 @@ private let log = Logger(subsystem: "com.spyglass.app.preview", category: "web")
 /// What the web shell (`Web/shell.html`) renders. Encoded as JSON and
 /// injected as `window.spyglassPayload` before the page's own scripts run.
 struct WebPayload: Encodable, Sendable {
-    enum Mode: String, Encodable, Sendable { case code, markdown, diff }
+    enum Mode: String, Encodable, Sendable { case code, markdown, diff, notebook }
 
     var mode: Mode
     var text = ""
@@ -26,6 +26,8 @@ struct WebPayload: Encodable, Sendable {
     /// Diff mode: the parsed patch.
     var files: [UnifiedDiff.File]?
     var preamble: String?
+    /// Notebook mode: the cells, each output already reduced to what's shown.
+    var notebook: Notebook?
 
     init(mode: Mode, settings: PreviewSettings) {
         self.mode = mode
@@ -46,8 +48,8 @@ struct WebPayload: Encodable, Sendable {
     }
 }
 
-/// Builds the WKWebView previews for code, structured text, Markdown and
-/// diffs from the bundled shell.
+/// Builds the WKWebView previews for code, structured text, Markdown, diffs
+/// and notebooks from the bundled shell.
 @MainActor
 enum WebRenderer {
 
