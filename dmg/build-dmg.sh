@@ -27,6 +27,11 @@ OUT="dmg/Spyglass.dmg"
 
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 
+# The Xcode project is generated from project.yml; without this a version bump
+# never reaches Info.plist, and Sparkle would offer no update.
+echo "==> Generating the Xcode project"
+xcodegen generate --quiet
+
 echo "==> Archiving Release"
 rm -rf "$ARCHIVE" "$SRC"
 xcodebuild -project Spyglass.xcodeproj -scheme Spyglass \
