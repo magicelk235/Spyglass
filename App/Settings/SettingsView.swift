@@ -3,6 +3,8 @@ import SwiftUI
 import SpyglassKit
 
 enum SettingsTab: String, CaseIterable, Identifiable {
+    case plan
+    case drive
     case appearance
     case formats
     case updates
@@ -11,6 +13,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
+        case .plan: "Plan"
+        case .drive: "Google Drive"
         case .appearance: "Appearance"
         case .formats: "Formats"
         case .updates: "Updates"
@@ -19,6 +23,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
+        case .plan: "key"
+        case .drive: "icloud"
         case .appearance: "paintbrush"
         case .formats: "doc.text.magnifyingglass"
         case .updates: "arrow.triangle.2.circlepath"
@@ -30,7 +36,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 @Observable
 final class SettingsNavigation {
     static let shared = SettingsNavigation()
-    var selectedTab: SettingsTab? = .appearance
+    var selectedTab: SettingsTab? = .plan
     private init() {}
 }
 
@@ -49,18 +55,27 @@ final class PreviewSettingsStore {
 }
 
 struct SettingsView: View {
+    @EnvironmentObject private var license: LicenseModel
     @State private var navigation = SettingsNavigation.shared
     @State private var store = PreviewSettingsStore()
-    @State private var history: [SettingsTab] = [.appearance]
+    @State private var history: [SettingsTab] = [.plan]
     @State private var historyIndex = 0
     @State private var isHistoryNavigation = false
 
-    private var activeTab: SettingsTab { navigation.selectedTab ?? .appearance }
+    /// Google Drive is only listed on plans that include it.
+    private var tabs: [SettingsTab] {
+        SettingsTab.allCases.filter { $0 != .drive || license.access.allowsDrive }
+    }
+
+    private var activeTab: SettingsTab {
+        guard let tab = navigation.selectedTab, tabs.contains(tab) else { return .plan }
+        return tab
+    }
 
     var body: some View {
         NavigationSplitView(columnVisibility: .constant(.all)) {
             List(selection: $navigation.selectedTab) {
-                ForEach(SettingsTab.allCases) { tab in
+                ForEach(tabs) { tab in
                     Label(tab.title, systemImage: tab.systemImage)
                         .foregroundStyle(.primary)
                         .tag(tab)
@@ -82,6 +97,8 @@ struct SettingsView: View {
         } detail: {
             Group {
                 switch activeTab {
+                case .plan: PlanSettingsPane()
+                case .drive: GoogleDriveSettingsPane()
                 case .appearance: AppearanceSettingsPane(store: store)
                 case .formats: FormatsSettingsPane(store: store)
                 case .updates: UpdatesSettingsPane()

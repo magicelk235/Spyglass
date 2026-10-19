@@ -149,14 +149,14 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
     static func trialNote(_ access: LicenseStore.Access) -> String? {
         guard case .trial(let days) = access, days <= 2 else { return nil }
         return days == 1
-            ? "Last day of your Spyglass trial. Unlock Pro from the menu bar to keep these previews."
-            : "2 days left in your Spyglass trial. Unlock Pro from the menu bar to keep these previews."
+            ? "Last day of your Spyglass trial. Unlock Pro in Spyglass Settings to keep these previews."
+            : "2 days left in your Spyglass trial. Unlock Pro in Spyglass Settings to keep these previews."
     }
 
     static func lockedNote(_ access: LicenseStore.Access) -> String {
         access == .notStarted
             ? "Open the Spyglass app once to start your free 7-day trial of rich previews."
-            : "Your Spyglass trial has ended. Unlock Pro from the menu bar to bring back rich previews."
+            : "Your Spyglass trial has ended. Unlock Pro in Spyglass Settings to bring back rich previews."
     }
 
     /// Installs a SwiftUI hosting view as the view's sole subview.

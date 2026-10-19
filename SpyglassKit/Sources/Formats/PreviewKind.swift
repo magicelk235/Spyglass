@@ -20,7 +20,7 @@ public enum FormatGroup: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// One or two words, for the usage line in the menu-bar window.
+    /// One or two words, for the weekly usage line in Settings.
     public var shortName: String {
         switch self {
         case .markdown:   return "Markdown"

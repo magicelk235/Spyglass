@@ -8,17 +8,17 @@ import SwiftUI
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private static var shared: SettingsWindowController?
 
-    static func show(tab: SettingsTab? = nil) {
+    static func show(auth: GoogleAuth, license: LicenseModel, tab: SettingsTab? = nil) {
         if let tab {
             SettingsNavigation.shared.selectedTab = tab
         }
         if shared == nil {
-            shared = SettingsWindowController()
+            shared = SettingsWindowController(auth: auth, license: license)
         }
         shared?.showWindow(nil)
     }
 
-    private init() {
+    private init(auth: GoogleAuth, license: LicenseModel) {
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: CGSize(width: 700, height: 540)),
             styleMask: [.titled, .closable, .resizable, .miniaturizable, .fullSizeContentView],
@@ -34,7 +34,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.minSize = NSSize(width: 620, height: 460)
         window.center()
         window.delegate = self
-        window.contentViewController = NSHostingController(rootView: SettingsView())
+        window.contentViewController = NSHostingController(rootView: SettingsView()
+            .environmentObject(auth)
+            .environmentObject(license))
     }
 
     @available(*, unavailable)

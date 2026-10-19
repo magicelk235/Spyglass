@@ -4,8 +4,8 @@ import SpyglassKit
 
 @main
 struct SpyglassApp: App {
-    @StateObject private var auth = GoogleAuth()
-    @StateObject private var license = LicenseModel()
+    private let auth = GoogleAuth()
+    private let license: LicenseModel
     // Held for the app's lifetime. The worker drains/fetches queued docIDs;
     // the scanner discovers stub files on disk and enqueues them. Together
     // they keep the shared preview cache warm — the write-locked Quick Look
@@ -17,6 +17,7 @@ struct SpyglassApp: App {
         // Before anything opens the App Group: 1.0 kept the license and cache
         // in a group the Quick Look extension can no longer read.
         LegacyGroupMigration.run()
+        license = LicenseModel()
         worker.start()
         scanner.start()
         // Keep the agent alive across logins so previews stay warm. Personal
@@ -28,11 +29,13 @@ struct SpyglassApp: App {
 
     var body: some Scene {
         MenuBarExtra("Spyglass", image: "SpyglassMenuBar") {
-            ContentView()
-                .environmentObject(auth)
-                .environmentObject(license)
-                .onAppear { auth.restore() }
+            Button("Settings…") { SettingsWindowController.show(auth: auth, license: license) }
+                .keyboardShortcut(",")
+            Button("Check for Updates…") { Updater.shared.checkForUpdates() }
+            Divider()
+            Button("Quit Spyglass") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
         }
-        .menuBarExtraStyle(.window)   // hosts the full ContentView as a popover
+        .menuBarExtraStyle(.menu)
     }
 }

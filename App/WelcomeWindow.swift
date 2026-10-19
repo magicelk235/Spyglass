@@ -57,8 +57,8 @@ private struct WelcomeView: View {
             VStack(alignment: .leading, spacing: 12) {
                 step("cursorarrow.click", "Select a file in Finder and press Space.")
                 step("doc.richtext", "Markdown, code, notebooks, archives, apps, folders and more now preview properly.")
-                step("gift", "Every preview is free for 7 days. Unlock Pro from the menu-bar icon any time.")
-                step("menubar.arrow.up.rectangle", "Spyglass lives in your menu bar. Google Drive setup is there too.")
+                step("gift", "Every preview is free for 7 days. Unlock Pro in Settings any time.")
+                step("menubar.arrow.up.rectangle", "Spyglass lives in your menu bar. Open Settings from there to set up Google Drive.")
             }
             .frame(maxWidth: 360, alignment: .leading)
             Button("Get Started", action: close)

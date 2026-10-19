@@ -4,7 +4,7 @@ import SpyglassKit
 
 private let log = Logger(subsystem: "com.spyglass.app", category: "license")
 
-/// The popover's view of `LicenseStore`. Starts the trial on first launch and
+/// The app's view of `LicenseStore`. Starts the trial on first launch and
 /// re-asks Gumroad about the stored key at launch and once a day, so a lapsed
 /// Drive membership or a refund takes effect without the user doing anything.
 @MainActor

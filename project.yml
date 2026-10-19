@@ -64,7 +64,7 @@ targets:
       base:
         DEFINES_MODULE: YES
 
-  # Host application: menu-bar popover, license, Google sign-in, updates.
+  # Host application: menu-bar menu, settings, license, Google sign-in, updates.
   Spyglass:
     type: application
     platform: macOS
