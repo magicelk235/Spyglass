@@ -8,7 +8,7 @@ import Foundation
 ///
 /// Plans, one Gumroad product each:
 /// - `pro`: one-time purchase, every format preview.
-/// - `drive`: monthly/yearly membership, format previews plus rendered Google
+/// - `drive`: monthly membership, format previews plus rendered Google
 ///   Drive previews while the subscription is active.
 /// - `legacy`: a Spyglass 1.0 key; those buyers keep Drive previews for life.
 public struct LicenseStore {
@@ -45,7 +45,7 @@ public struct LicenseStore {
 
     public static let trialDays = 7
 
-    public static let buyProURL = URL(string: "https://magicelk235.gumroad.com/l/spyglass-pro")!
+    public static let buyProURL = URL(string: "https://magicelk235.gumroad.com/l/spyglass")!
     public static let buyDriveURL = URL(string: "https://magicelk235.gumroad.com/l/spyglass-drive")!
 
     static let proKey = "isPro"

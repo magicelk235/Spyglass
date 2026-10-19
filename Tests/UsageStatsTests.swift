@@ -116,7 +116,7 @@ final class UsageStatsTests: XCTestCase {
         let url = CheckoutLink.url(plan: .pro, button: .pro, access: .trial(daysLeft: 2), week: s.week(now: now))
         let parts = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
         XCTAssertEqual(parts.host, "magicelk235.gumroad.com")
-        XCTAssertEqual(parts.path, "/l/spyglass-pro")
+        XCTAssertEqual(parts.path, "/l/spyglass")
         let query = Dictionary(uniqueKeysWithValues: (parts.queryItems ?? []).map { ($0.name, $0.value ?? "") })
         XCTAssertEqual(query, [
             "wanted": "true",

@@ -31,13 +31,13 @@ Every format preview is free for 7 days, starting the first time you open the ap
 | Plan | Price | Includes |
 |---|---|---|
 | Spyglass Pro | $12 once | Every format preview, for good |
-| Spyglass Pro + Drive | $4 a month or $36 a year | Everything in Pro, plus rendered Google Drive documents and their Finder thumbnails |
+| Spyglass Drive | $4 a month | Everything in Pro, plus rendered Google Drive documents and their Finder thumbnails |
 
 After the trial, files without a plan still open in Quick Look as plain text or a short file summary. The Google Drive info card (title, owner and a link to open the document) is always free.
 
-If you bought Spyglass 1.0, your key still works and now includes Pro + Drive at no charge.
+If you bought Spyglass 1.0, your key still works and now includes Spyglass Drive at no charge.
 
-Buy at [magicelklabs.com/spyglass](https://magicelklabs.com/spyglass), then paste the license key from your Gumroad receipt into the Spyglass menu-bar window.
+Buy at [magicelklabs.com/spyglass](https://magicelklabs.com/spyglass), then paste the license key from your Gumroad receipt into Spyglass Settings, under Plan. Settings opens from the Spyglass menu-bar icon.
 
 ## Install
 
@@ -52,11 +52,11 @@ brew install --cask magicelk235/magicelklabs/spyglass
 
 Spyglass needs macOS 14 or later. It updates itself in the background; you can turn that off in Settings.
 
-For Google Drive previews on the Drive plan, open the menu-bar window, sign in with Google, and give Spyglass Full Disk Access when it asks, so it can read your Drive folder.
+For Google Drive previews on the Drive plan, open Settings from the menu-bar icon, go to Google Drive, sign in with Google, and give Spyglass Full Disk Access when it asks, so it can read your Drive folder.
 
 ## Privacy
 
-Format previews happen entirely on your Mac and never touch the network. Spyglass reads the file you're previewing and, when needed, files next to it (images in a Markdown file, sizes inside a folder). The only thing it writes is a small tally of how many previews it showed this week, by format, which the menu-bar window displays. File names aren't recorded.
+Format previews happen entirely on your Mac and never touch the network. Spyglass reads the file you're previewing and, when needed, files next to it (images in a Markdown file, sizes inside a folder). The only thing it writes is a small tally of how many previews it showed this week, by format, which Settings displays. File names aren't recorded.
 
 Only two things leave your Mac. On the Drive plan, Spyglass asks Google for your own documents with read-only access and keeps the sign-in token in your Keychain. And when you press a Buy button in the app, the Gumroad checkout link includes how far into the trial you are, your most-used format and a rough count of this week's previews, so we can tell which kinds of use lead to a purchase. Nothing is sent at any other time. There is no Spyglass server.
 
