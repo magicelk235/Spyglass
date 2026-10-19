@@ -15,10 +15,6 @@ public struct FetchQueue {
         self.requestsDirectory = directory.appendingPathComponent("requests", isDirectory: true)
     }
 
-    public static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
-    }
-
     /// Writes (or overwrites — idempotent) the marker for this docID.
     public func enqueue(docID: String) throws {
         try FileManager.default.createDirectory(at: requestsDirectory, withIntermediateDirectories: true)
@@ -49,7 +45,7 @@ public struct FetchQueue {
     /// them during drain and processes them like marker files.
     /// ponytail: read-modify-write is not atomic across processes; previews
     /// arrive one at a time, so a lost concurrent append is acceptable.
-    public static func postRequest(docID: String, groupID: String = "group.com.spyglass.shared") {
+    public static func postRequest(docID: String, groupID: String = AppGroup.identifier) {
         guard let d = UserDefaults(suiteName: groupID) else { return }
         var list = d.stringArray(forKey: defaultsKey) ?? []
         guard !list.contains(docID) else { return }
@@ -58,7 +54,7 @@ public struct FetchQueue {
     }
 
     /// Takes (returns and clears) all requests posted via postRequest.
-    public static func takeRequests(groupID: String = "group.com.spyglass.shared") -> [String] {
+    public static func takeRequests(groupID: String = AppGroup.identifier) -> [String] {
         guard let d = UserDefaults(suiteName: groupID) else { return [] }
         let list = d.stringArray(forKey: defaultsKey) ?? []
         if !list.isEmpty { d.removeObject(forKey: defaultsKey) }

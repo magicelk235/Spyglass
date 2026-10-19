@@ -27,6 +27,11 @@ OUT="dmg/Spyglass.dmg"
 
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 
+# The Xcode project is generated from project.yml; without this a version bump
+# never reaches Info.plist, and Sparkle would offer no update.
+echo "==> Generating the Xcode project"
+xcodegen generate --quiet
+
 echo "==> Archiving Release"
 rm -rf "$ARCHIVE" "$SRC"
 xcodebuild -project Spyglass.xcodeproj -scheme Spyglass \
@@ -99,9 +104,35 @@ codesign --force --timestamp --sign "Developer ID Application: Bella Cohen (V8K8
 echo "==> Wrote $OUT"
 
 if [ "${NOTARIZE:-0}" = "1" ]; then
-  : "${AC_PROFILE:?set AC_PROFILE to your notarytool keychain profile}"
-  echo "==> Notarizing (this can take a few minutes)"
+  # The keychain profile holds the team's App Store Connect credentials
+  # (`xcrun notarytool store-credentials`); any profile for team V8K8L3ZSD5 works.
+  AC_PROFILE="${AC_PROFILE:-viaduct-notary}"
+  echo "==> Notarizing with profile $AC_PROFILE (this can take a few minutes)"
   xcrun notarytool submit "$OUT" --keychain-profile "$AC_PROFILE" --wait
   xcrun stapler staple "$OUT"
+  xcrun stapler validate "$OUT"
+  # The ticket covers every code item in the submission, so the exported app
+  # can be stapled directly. Sparkle installs it from a zip, with no DMG around
+  # it, so it needs its own ticket to launch on a Mac that's offline.
+  xcrun stapler staple "$SRC/$APP"
   echo "==> Notarized + stapled"
+
+  # Sparkle update channel: a zip of the stapled app and a feed signed with
+  # the Spyglass EdDSA key (login keychain, account "spyglass"). Both ride
+  # along on the GitHub release; the app's feed URL is
+  # .../releases/latest/download/appcast.xml.
+  VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$SRC/$APP/Contents/Info.plist")"
+  WANT="$(sed -n 's/^ *MARKETING_VERSION: *"\(.*\)"/\1/p' project.yml | head -1)"
+  [ "$VERSION" = "$WANT" ] || { echo "FAILED: built $VERSION but project.yml says $WANT; run xcodegen and rebuild"; exit 1; }
+  DIST=dmg/dist
+  rm -rf "$DIST" && mkdir -p "$DIST"
+  ditto -c -k --keepParent "$SRC/$APP" "$DIST/Spyglass-$VERSION.zip"
+  GEN="$DD/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast"
+  [ -x "$GEN" ] || { echo "FAILED: generate_appcast not found at $GEN"; exit 1; }
+  "$GEN" --account spyglass "$DIST" -o "$DIST/appcast.xml" \
+    --download-url-prefix "https://github.com/magicelk235/spyglass/releases/download/v$VERSION/"
+  echo "==> Update feed: $DIST/appcast.xml"
+  echo
+  echo "Publish (tag MUST be v$VERSION or the feed's download URLs 404):"
+  echo "  gh release create v$VERSION $OUT $DIST/Spyglass-$VERSION.zip $DIST/appcast.xml --title \"Spyglass $VERSION\" --notes-file <notes>"
 fi

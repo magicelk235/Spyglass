@@ -1,60 +1,65 @@
 # Spyglass
 
-Real Quick Look previews for Google Workspace files on macOS.
+Quick Look for the files Finder can't show, including Google Drive documents.
 
-When you sync Google Drive to your Mac, your Docs, Sheets, Slides, Drawings,
-Forms, and Sites don't come down as real files. They land as tiny stub files
-(`.gdoc`, `.gsheet`, `.gslides`, `.gdraw`, `.gform`, `.gsite`) that hold nothing
-but a document ID. Press Space on one in Finder and Quick Look shows you a
-useless blob of JSON. Spyglass fixes that and shows you the actual document
-instead.
+Select a file in Finder and press Space. Instead of a big icon, Spyglass shows you the file: rendered Markdown, highlighted code, a notebook with its plots, the inside of a zip, the signing details of an app. For Google Docs, Sheets and Slides synced to your Mac, it shows the real document.
 
-## Previews
+## What it previews
 
-Spyglass previews your files two ways.
+- Markdown: GitHub-style rendering with tables, task lists, footnotes, alerts, math and Mermaid diagrams. Images next to the file show up too.
+- Code: about 190 languages with syntax highlighting and line numbers, including scripts without an extension.
+- JSON, XML, plist, YAML, TOML: minified JSON is reformatted with its key order kept, binary plists show as XML, and signed configuration profiles are unwrapped.
+- Jupyter notebooks: Markdown cells, highlighted code, plots, tables, LaTeX and colored error tracebacks.
+- Diffs and patches: colored hunks with one tab per file.
+- Tables: TSV and JSON Lines as a sortable table.
+- SQLite databases: every table and view, with column types.
+- Archives: zip, tar, gzip, bzip2, xz and ISO images, browsed without extracting. Java, Android, Python, NuGet, VS Code and Firefox packages also show their name and version.
+- Apps and installers: `.app`, `.ipa`, `.pkg`, `.dmg` and frameworks, with version, bundle ID, signing and entitlements.
+- Binaries: executables, dylibs, object files and static libraries, with their architectures, minimum macOS and linked libraries.
+- Folders: a Finder-style list with icons, item count and total size.
+- Torrents: files, trackers and the info hash.
+- Google Drive: `.gdoc`, `.gsheet`, `.gslides`, `.gdraw`, `.gform` and `.gsite` files, plus the `.webloc` bookmarks some Drive clients write. Every one gets an info card. On the Drive plan, Docs, Sheets, Slides and Drawings show the real document; Google can't export Forms and Sites, so those keep the card.
 
-The offline card works instantly for all six types, with no sign-in. Press Space
-and you get a clean card with the document's icon, its title, the owner, and a
-link that opens the file on Google. It works with no network and no account.
+An open preview updates when you save the file. In Settings you can pick a light or dark theme, set the code font size, or switch off any format.
 
-The rendered preview is a paid unlock, $12 once, and it also needs a one-time
-Google sign-in. For Docs, Sheets, Slides, and Drawings, Spyglass pulls the real
-document from Google Drive and shows it the way it actually looks. If you're
-offline, not signed in, or the document can't be rendered, Spyglass falls back
-to the offline card. The preview is never blank and never hangs. Forms and Sites
-can't be exported by Google, so they always show the card.
+macOS keeps `.txt` and `.csv` for its own preview, so Spyglass leaves those alone. If you have another Quick Look app installed and it wins for some file type, choose which one handles it in System Settings > General > Login Items & Extensions > Quick Look.
 
-## Requirements
+## Pricing
 
-- macOS 14 or later.
-- A Google account, if you want the rendered previews. The offline card needs no
-  account at all.
+Every format preview is free for 7 days, starting the first time you open the app. You don't need a card.
 
-## Getting started
+| Plan | Price | Includes |
+|---|---|---|
+| Spyglass Pro | $12 once | Every format preview, for good |
+| Spyglass Drive | $4 a month | Everything in Pro, plus rendered Google Drive documents and their Finder thumbnails |
 
-1. [Download Spyglass](https://github.com/magicelk235/spyglass/releases/latest/download/Spyglass.dmg)
-   and open it once. It runs quietly from the menu bar.
-2. Press Space on any Google stub file (`.gdoc`, `.gsheet`, `.gslides`,
-   `.gdraw`, `.gform`, `.gsite`) in Finder. You'll see the Spyglass card right
-   away.
-3. To turn on rendered previews, buy a key at
-   [magicelklabs.com/spyglass](https://magicelklabs.com/spyglass), paste it into
-   the menu-bar app, and sign in with Google. From then on, Docs, Sheets, Slides,
-   and Drawings show the real document when you preview them.
+After the trial, files without a plan still open in Quick Look as plain text or a short file summary. The Google Drive info card (title, owner and a link to open the document) is always free.
 
-Spyglass keeps your rendered previews ready in the background so they come up
-fast. Nothing leaves your Mac except the request to Google Drive for your own
-documents.
+If you bought Spyglass 1.0, your key still works and now includes Spyglass Drive at no charge.
+
+Buy at [magicelklabs.com/spyglass](https://magicelklabs.com/spyglass), then paste the license key from your Gumroad receipt into Spyglass Settings, under Plan. Settings opens from the Spyglass menu-bar icon.
+
+## Install
+
+1. [Download Spyglass](https://github.com/magicelk235/spyglass/releases/latest/download/Spyglass.dmg), drag it to Applications and open it once. It runs from the menu bar.
+2. Select a file in Finder and press Space.
+
+Or with Homebrew:
+
+```sh
+brew install --cask magicelk235/magicelklabs/spyglass
+```
+
+Spyglass needs macOS 14 or later. It updates itself in the background; you can turn that off in Settings.
+
+For Google Drive previews on the Drive plan, open Settings from the menu-bar icon, go to Google Drive, sign in with Google, and give Spyglass Full Disk Access when it asks, so it can read your Drive folder.
 
 ## Privacy
 
-Spyglass talks only to Google, and only to fetch your own files. It reads your
-Drive with read-only access, stores its sign-in token in your Mac's Keychain,
-and keeps rendered previews in a local cache on your machine. There is no
-Spyglass server and no analytics.
+Format previews happen entirely on your Mac and never touch the network. Spyglass reads the file you're previewing and, when needed, files next to it (images in a Markdown file, sizes inside a folder). The only thing it writes is a small tally of how many previews it showed this week, by format, which Settings displays. File names aren't recorded.
+
+Only two things leave your Mac. On the Drive plan, Spyglass asks Google for your own documents with read-only access and keeps the sign-in token in your Keychain. And when you press a Buy button in the app, the Gumroad checkout link includes how far into the trial you are, your most-used format and a rough count of this week's previews, so we can tell which kinds of use lead to a purchase. Nothing is sent at any other time. There is no Spyglass server.
 
 ## License
 
-Licensed under the [PolyForm Shield License 1.0.0](LICENSE). Copyright (c) 2026
-Yehonatan Cohen (magicelk235). You may use, modify, and share it, but you may
-not use it to build a product that competes with Spyglass.
+Licensed under the [PolyForm Shield License 1.0.0](LICENSE). Copyright (c) 2026 Yehonatan Cohen (magicelk235). You may use, modify, and share it, but you may not use it to build a product that competes with Spyglass.

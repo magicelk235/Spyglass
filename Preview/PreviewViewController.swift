@@ -9,9 +9,12 @@ private let log = Logger(subsystem: "com.spyglass.app.preview", category: "previ
 
 /// Quick Look Preview Extension entry point.
 ///
+/// Every file is routed first. Google stubs and `.webloc` bookmarks take the
+/// Drive path below; everything else goes to `FormatPreview`.
+///
 /// The extension's sandbox is read-only in practice: no DNS (every host fails
 /// with -1003), no group-container writes, no shared-prefs writes, no
-/// launching the app. So the extension is a pure cache READER. The app (a
+/// launching the app. So the Drive path is a pure cache READER. The app (a
 /// menu-bar agent) discovers stub files on disk, pre-fetches their PDF
 /// exports, and keeps the shared App Group cache warm. This controller
 /// renders the cached PDF if present, else the Tier 0 card. The preview is
@@ -24,6 +27,18 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
 
     func preparePreviewOfFile(at url: URL) async throws {
         log.notice("Preview invoked for \(url.lastPathComponent, privacy: .public)")
+
+        let uti = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
+        let kind = PreviewKind.route(filename: url.lastPathComponent, uti: uti)
+        guard kind == .googleStub || kind == .webloc else {
+            // Counted once per opened preview, not per live reload.
+            if let group = kind?.group { UsageStats.inExtension().record(group) }
+            install(await formatView(kind: kind, url: url))
+            watcher = FileWatcher(url: url) { [weak self] in
+                Task { @MainActor in await self?.reload(url: url, kind: kind) }
+            }
+            return
+        }
 
         // Parse stub — failure shows UnparseableView instead of throwing.
         let stub: Stub
@@ -42,22 +57,18 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             return
         }
 
-        // Freshness can't be checked here (needs metadata = network); the app
-        // validated modifiedTime when it wrote the cache and revalidates on
-        // every scan pass.
-        // Tier 1 (rendered PDF) requires a valid license. Gate the READ, not
-        // just the app's fetch: a stale/trial cache must never leak a rendered
-        // preview to an unlicensed user. No license -> fall through to Tier 0.
-        // Any type with a cached PDF renders (Forms/Sites arrive as a thumbnail
-        // wrapped in a PDF by the app; exportable types as the real export).
-        if LicenseStore().isPro,
-           let container = FetchQueue.groupContainerURL(),
-           let pdf = PreviewCache(directory: container).anyCachedPDF(docID: stub.docID),
-           showPDF(pdf) {
+        UsageStats.inExtension().recordDrive()
+
+        // Tier 1: the rendered PDF the app cached, behind the license gate
+        // (see DriveCache). Forms/Sites arrive as a thumbnail wrapped in a
+        // PDF by the app; exportable types as the real export.
+        if let pdf = DriveCache.licensedPDF(docID: stub.docID), showPDF(pdf) {
+            log.notice("Drive: showing cached PDF")
             return
         }
 
         // Tier 0 fallback: always works, no network needed.
+        log.notice("Drive: showing offline card")
         show(AnyView(StubCardView(stub: stub)))
     }
 
@@ -94,13 +105,70 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         pdfView.go(to: PDFDestination(page: first, at: top))
     }
 
+    // MARK: - Live reload
+
+    private var watcher: FileWatcher?
+    private var reloading = false
+    private var reloadAgain = false
+
+    /// Re-renders the open preview after its file changed on disk, keeping
+    /// the scroll position. Changes that land mid-render queue one more pass.
+    private func reload(url: URL, kind: PreviewKind?) async {
+        guard !reloading else { reloadAgain = true; return }
+        reloading = true
+        defer { reloading = false }
+        repeat {
+            reloadAgain = false
+            var position: ScrollMemory.Position?
+            if let current = view.subviews.first { position = await ScrollMemory.capture(in: current) }
+            let content = await formatView(kind: kind, url: url)
+            install(content)
+            ScrollMemory.restore(position, in: content)
+            log.notice("Reloaded \(url.lastPathComponent, privacy: .public)")
+        } while reloadAgain
+    }
+
+    // MARK: - Trial and license gate
+
+    /// The format preview the user's access allows. Without access, the file
+    /// still gets the free fallback (plain text or a summary) with a note
+    /// saying why, never a blank or a lock screen.
+    private func formatView(kind: PreviewKind?, url: URL) async -> NSView {
+        let access = LicenseStore().access()
+        let settings = PreviewSettings.load()
+        guard kind?.group != nil, !access.allowsFormats else {
+            let view = await FormatPreview.makeView(kind: kind, url: url, settings: settings)
+            return FallbackViews.withNote(view, note: Self.trialNote(access))
+        }
+        log.notice("Format preview locked: \(String(describing: access), privacy: .public)")
+        let view = await FormatPreview.makeView(kind: nil, url: url, settings: settings)
+        return FallbackViews.withNote(view, note: Self.lockedNote(access))
+    }
+
+    /// A reminder in the last two days of the trial; nothing otherwise.
+    static func trialNote(_ access: LicenseStore.Access) -> String? {
+        guard case .trial(let days) = access, days <= 2 else { return nil }
+        return days == 1
+            ? "Last day of your Spyglass trial. Unlock Pro in Spyglass Settings to keep these previews."
+            : "2 days left in your Spyglass trial. Unlock Pro in Spyglass Settings to keep these previews."
+    }
+
+    static func lockedNote(_ access: LicenseStore.Access) -> String {
+        access == .notStarted
+            ? "Open the Spyglass app once to start your free 7-day trial of rich previews."
+            : "Your Spyglass trial has ended. Unlock Pro in Spyglass Settings to bring back rich previews."
+    }
+
     /// Installs a SwiftUI hosting view as the view's sole subview.
     private func show(_ root: AnyView) {
-        let hosting = NSHostingView(rootView: root)
-        hosting.frame = view.bounds
-        hosting.autoresizingMask = [.width, .height]
+        install(NSHostingView(rootView: root))
+    }
+
+    private func install(_ content: NSView) {
+        content.frame = view.bounds
+        content.autoresizingMask = [.width, .height]
         view.subviews.forEach { $0.removeFromSuperview() }
-        view.addSubview(hosting)
+        view.addSubview(content)
     }
 }
 

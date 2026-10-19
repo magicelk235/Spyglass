@@ -11,10 +11,6 @@ public struct PreviewCache {
         self.previewsDir = directory.appendingPathComponent("previews", isDirectory: true)
     }
 
-    public static func groupContainerURL(groupID: String = "group.com.spyglass.shared") -> URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupID)
-    }
-
     public func cachedPDF(docID: String, modifiedTime: String) -> Data? {
         guard let meta = try? String(contentsOf: metaURL(docID), encoding: .utf8),
               meta == modifiedTime,

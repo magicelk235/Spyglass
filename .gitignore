@@ -23,3 +23,10 @@ dmg/assets/dmg-preview.png
 
 # Old-name DMG artifact
 dmg/DrivePeak.dmg
+
+# Release outputs (dmg/build-dmg.sh)
+dmg/dist/
+
+# Media kit: large images, kept out of git
+mediakit/
+dmg/Spyglass-*.dmg

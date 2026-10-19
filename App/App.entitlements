@@ -9,8 +9,12 @@
          (StubScanner) and pre-fetch previews. That needs real file access.
          The App Group holds the rendered-PDF cache and the Keychain group the
          OAuth token, both shared with the extension. -->
+    <!-- The first group is current (see AppGroup.swift). The second is the
+         1.0 group, kept only so LegacyGroupMigration can move the license and
+         cache out of it. -->
     <key>com.apple.security.application-groups</key>
     <array>
+        <string>V8K8L3ZSD5.com.spyglass.shared</string>
         <string>group.com.spyglass.shared</string>
     </array>
     <key>keychain-access-groups</key>
