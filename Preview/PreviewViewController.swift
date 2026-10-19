@@ -31,6 +31,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
         let uti = (try? url.resourceValues(forKeys: [.contentTypeKey]))?.contentType?.identifier
         let kind = PreviewKind.route(filename: url.lastPathComponent, uti: uti)
         guard kind == .googleStub || kind == .webloc else {
+            // Counted once per opened preview, not per live reload.
+            if let group = kind?.group { UsageStats.inExtension().record(group) }
             install(await formatView(kind: kind, url: url))
             watcher = FileWatcher(url: url) { [weak self] in
                 Task { @MainActor in await self?.reload(url: url, kind: kind) }
@@ -54,6 +56,8 @@ final class PreviewViewController: NSViewController, QLPreviewingController {
             show(AnyView(UnparseableView(filename: url.lastPathComponent)))
             return
         }
+
+        UsageStats.inExtension().recordDrive()
 
         // Tier 1: the rendered PDF the app cached, behind the license gate
         // (see DriveCache). Forms/Sites arrive as a thumbnail wrapped in a

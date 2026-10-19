@@ -21,7 +21,7 @@ final class LicenseModel: ObservableObject {
     init() {
         store.startTrialIfNeeded()
         refresh()
-        Task { await recheck() }
+        log.notice("Previews this week: \(UsageStats.inApp().week().total)")
         timer = Timer.scheduledTimer(withTimeInterval: 24 * 3600, repeats: true) { [weak self] _ in
             Task { await self?.recheck() }
         }

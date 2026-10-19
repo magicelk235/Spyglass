@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var driveBlocked = DriveAccess.isBlocked()
     @State private var hoveringLicense = false
     @State private var hoveringAccount = false
+    @State private var week = UsageStats.inApp().week()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -44,6 +45,7 @@ struct ContentView: View {
             // The popover reuses one view, so re-check each time it opens:
             // the trial counts down and Full Disk Access may have changed.
             license.refresh()
+            week = UsageStats.inApp().week()
             driveBlocked = DriveAccess.isBlocked()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
@@ -94,7 +96,14 @@ struct ContentView: View {
             }
             .onHover { hoveringLicense = $0 }
             if license.access == .pro {
-                Link(destination: LicenseStore.buyDriveURL) {
+                if week.drive > 0 {
+                    Text(week.drive == 1
+                         ? "You opened 1 Google Drive file this week."
+                         : "You opened \(week.drive) Google Drive files this week.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                Link(destination: checkout(.drive, .driveUpgrade)) {
                     Label("Add Google Drive previews: $4/month", systemImage: "icloud")
                 }
             }
@@ -132,10 +141,15 @@ struct ContentView: View {
             if let error = license.error {
                 Text(error).font(.callout).foregroundStyle(.red)
             }
-            Link(destination: LicenseStore.buyProURL) {
+            if let summary = week.summary {
+                Label(summary, systemImage: "chart.bar")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            Link(destination: checkout(.pro, .pro)) {
                 Label("Spyglass Pro: $12 once", systemImage: "cart")
             }
-            Link(destination: LicenseStore.buyDriveURL) {
+            Link(destination: checkout(.drive, .drive)) {
                 Label("Pro + Google Drive: $4/month", systemImage: "icloud")
             }
         } header: {
@@ -143,6 +157,12 @@ struct ContentView: View {
         } footer: {
             Text(unlockFooter)
         }
+    }
+
+    /// Opens Gumroad checkout directly, tagged with this week's usage (see
+    /// CheckoutLink for exactly what is shared).
+    private func checkout(_ plan: LicenseStore.Plan, _ button: CheckoutLink.Button) -> URL {
+        CheckoutLink.url(plan: plan, button: button, access: license.access, week: week)
     }
 
     private var trialHeadline: String {

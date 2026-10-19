@@ -56,9 +56,9 @@ For Google Drive previews on the Drive plan, open the menu-bar window, sign in w
 
 ## Privacy
 
-Format previews happen entirely on your Mac and never touch the network. Spyglass reads the file you're previewing and, when needed, files next to it (images in a Markdown file, sizes inside a folder). It doesn't write anything.
+Format previews happen entirely on your Mac and never touch the network. Spyglass reads the file you're previewing and, when needed, files next to it (images in a Markdown file, sizes inside a folder). The only thing it writes is a small tally of how many previews it showed this week, by format, which the menu-bar window displays. File names aren't recorded.
 
-Only the Drive plan talks to the network: Spyglass asks Google for your own documents with read-only access and keeps the sign-in token in your Keychain. There is no Spyglass server and no analytics.
+Only two things leave your Mac. On the Drive plan, Spyglass asks Google for your own documents with read-only access and keeps the sign-in token in your Keychain. And when you press a Buy button in the app, the Gumroad checkout link includes how far into the trial you are, your most-used format and a rough count of this week's previews, so we can tell which kinds of use lead to a purchase. Nothing is sent at any other time. There is no Spyglass server.
 
 ## License
 

@@ -19,6 +19,23 @@ public enum FormatGroup: String, CaseIterable, Codable, Sendable {
         case .folder:     return "Folders"
         }
     }
+
+    /// One or two words, for the usage line in the menu-bar window.
+    public var shortName: String {
+        switch self {
+        case .markdown:   return "Markdown"
+        case .notebook:   return "Notebooks"
+        case .code:       return "Code"
+        case .structured: return "Data files"
+        case .diff:       return "Diffs"
+        case .table:      return "Tables"
+        case .sqlite:     return "SQLite"
+        case .archive:    return "Archives"
+        case .bundle:     return "Apps"
+        case .binary:     return "Binaries"
+        case .folder:     return "Folders"
+        }
+    }
 }
 
 public enum StructuredFormat: String, Sendable { case json, xml, plist, yaml, toml }
