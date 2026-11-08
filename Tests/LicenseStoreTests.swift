@@ -75,7 +75,7 @@ final class LicenseStoreTests: XCTestCase {
     func testClearRemovesTheLicenseButKeepsTheTrialClock() {
         let s = store()
         s.startTrialIfNeeded(now: now - 30 * day)
-        s.save(.init(plan: .pro, key: "K", membershipActive: false), now: now)
+        s.save(.init(plan: .pro, key: "K", membershipActive: false, issuer: .gumroad), now: now)
         XCTAssertEqual(s.access(now: now), .pro)
         s.clear()
         XCTAssertNil(s.licenseKey)
@@ -140,25 +140,127 @@ final class LicenseStoreTests: XCTestCase {
         XCTAssertFalse(encoded.contains("+"))
     }
 
-    // MARK: - Activation across products
+    // MARK: - Polar answers
 
-    /// A key is tried against each product until one recognizes it.
-    func testActivationFindsTheProductThatOwnsTheKey() async throws {
-        let s = store()
-        let plan = try await s.activate(key: " K-1 \n", now: now) { product, key in
-            XCTAssertEqual(key, "K-1")
-            return product == .pro ? .valid(membershipActive: true) : nil
+    func testPolarGrantedBodyGivesItsBenefit() throws {
+        XCTAssertEqual(try LicenseStore.polarAnswer(status: 200, body: data(#"{"benefit_id":"B","status":"granted"}"#)),
+                       .granted(benefitID: "B"))
+    }
+
+    /// Polar's stock "Not found" means it never issued the key, so it may be a Gumroad key.
+    func testPolarStockNotFoundIsUnknown() throws {
+        XCTAssertEqual(try LicenseStore.polarAnswer(status: 404, body: data(#"{"error":"ResourceNotFound","detail":"Not found"}"#)),
+                       .unknown)
+    }
+
+    func testPolarOtherNotFoundDetailIsRefused() throws {
+        XCTAssertEqual(try LicenseStore.polarAnswer(status: 404, body: data(#"{"error":"ResourceNotFound","detail":"License key is revoked"}"#)),
+                       .refused)
+    }
+
+    /// Only Polar's own error bodies count as an answer; anything else is an outage.
+    func testNonPolarResponsesThrowNetworkOrMalformed() {
+        XCTAssertThrowsError(try LicenseStore.polarAnswer(status: 502, body: data("<html>Bad gateway</html>"))) {
+            XCTAssertEqual($0 as? LicenseStore.LicenseError, .network(502))
         }
+        XCTAssertThrowsError(try LicenseStore.polarAnswer(status: 404, body: data("<html>Not found</html>"))) {
+            XCTAssertEqual($0 as? LicenseStore.LicenseError, .network(404))
+        }
+        XCTAssertThrowsError(try LicenseStore.polarAnswer(status: 200, body: data(#"{"status":"granted"}"#))) {
+            XCTAssertEqual($0 as? LicenseStore.LicenseError, .malformed)
+        }
+    }
+
+    func testPlanForPolarBenefit() {
+        XCTAssertEqual(LicenseStore.Plan.forPolarBenefit("87a7e00e-fbc4-4419-861d-f9013406a6f7"), .pro)
+        XCTAssertEqual(LicenseStore.Plan.forPolarBenefit("ba0435a3-c11c-4581-8f4b-78689062dd88"), .drive)
+        XCTAssertNil(LicenseStore.Plan.forPolarBenefit("fba4c928-be07-45ea-989a-70d343713df5"))
+        XCTAssertNil(LicenseStore.Plan.legacy.polarBenefitID)
+    }
+
+    // MARK: - Activation
+
+    private let proBenefit = LicenseStore.Plan.pro.polarBenefitID!
+    private let driveBenefit = LicenseStore.Plan.drive.polarBenefitID!
+    private let noGumroad: LicenseStore.Verifier = { _, _ in XCTFail("Gumroad must not be asked"); return nil }
+    private let noPolar: LicenseStore.PolarVerifier = { _ in XCTFail("Polar must not be asked"); return .unknown }
+
+    func testActivateWithPolarProKeyStoresPolarPro() async throws {
+        let s = store()
+        let benefit = proBenefit
+        let plan = try await s.activate(key: " P-1 \n", now: now, polar: { key in
+            XCTAssertEqual(key, "P-1")
+            return .granted(benefitID: benefit)
+        }, gumroad: noGumroad)
         XCTAssertEqual(plan, .pro)
-        XCTAssertEqual(s.licenseKey, "K-1")
+        XCTAssertEqual(s.licenseKey, "P-1")
+        XCTAssertEqual(s.issuer, .polar)
         XCTAssertEqual(s.access(now: now + 365 * day), .pro)
+    }
+
+    func testActivateWithPolarDriveKeyGivesProAndDrive() async throws {
+        let s = store()
+        let benefit = driveBenefit
+        try await s.activate(key: "D-1", now: now, polar: { _ in .granted(benefitID: benefit) }, gumroad: noGumroad)
+        XCTAssertEqual(s.plan, .drive)
+        XCTAssertEqual(s.access(now: now), .proAndDrive)
+    }
+
+    /// A Lector or Viaduct key sold on the same Polar account.
+    func testActivateRejectsAnotherProductsPolarKey() async {
+        let s = store()
+        s.save(.init(plan: .pro, key: "OLD", membershipActive: true, issuer: .polar), now: now)
+        do {
+            _ = try await s.activate(key: "LECTOR", now: now, polar: { _ in .granted(benefitID: "fba4c928-be07-45ea-989a-70d343713df5") },
+                                     gumroad: noGumroad)
+            XCTFail("expected otherProduct")
+        } catch {
+            XCTAssertEqual(error as? LicenseStore.LicenseError, .otherProduct)
+        }
+        XCTAssertEqual(s.licenseKey, "OLD")
+    }
+
+    /// A key Polar never issued is tried against each Gumroad product.
+    func testActivateFallsBackToGumroadOnlyOnNotFound() async throws {
+        let s = store()
+        let plan = try await s.activate(key: " K-1 \n", now: now, polar: { _ in .unknown }) { product, key in
+            XCTAssertEqual(key, "K-1")
+            return product == .legacy ? .valid(membershipActive: true) : nil
+        }
+        XCTAssertEqual(plan, .legacy)
+        XCTAssertEqual(s.licenseKey, "K-1")
+        XCTAssertEqual(s.issuer, .gumroad)
+        XCTAssertEqual(s.access(now: now + 365 * day), .proAndDrive)
+    }
+
+    func testActivateRefusedPolarKeyIsInvalid() async {
+        let s = store()
+        do {
+            _ = try await s.activate(key: "REVOKED", now: now, polar: { _ in .refused }, gumroad: noGumroad)
+            XCTFail("expected invalidKey")
+        } catch {
+            XCTAssertEqual(error as? LicenseStore.LicenseError, .invalidKey)
+        }
+        XCTAssertNil(s.licenseKey)
+    }
+
+    /// An outage must not be read as "not a Polar key" and sent to Gumroad.
+    func testActivateDoesNotFallBackToGumroadWhenPolarIsUnreachable() async {
+        let s = store()
+        do {
+            _ = try await s.activate(key: "P-1", now: now, polar: { _ in throw LicenseStore.LicenseError.network(0) }, gumroad: noGumroad)
+            XCTFail("expected network")
+        } catch {
+            XCTAssertEqual(error as? LicenseStore.LicenseError, .network(0))
+        }
+        XCTAssertNil(s.licenseKey)
     }
 
     func testActivationWithAnUnknownKeyChangesNothing() async {
         let s = store()
-        s.save(.init(plan: .pro, key: "OLD", membershipActive: false), now: now)
+        s.save(.init(plan: .pro, key: "OLD", membershipActive: false, issuer: .gumroad), now: now)
         do {
-            _ = try await s.activate(key: "NOPE", now: now) { _, _ in nil }
+            _ = try await s.activate(key: "NOPE", now: now, polar: { _ in .unknown }) { _, _ in nil }
             XCTFail("expected invalidKey")
         } catch {
             XCTAssertEqual(error as? LicenseStore.LicenseError, .invalidKey)
@@ -166,22 +268,83 @@ final class LicenseStoreTests: XCTestCase {
         XCTAssertEqual(s.licenseKey, "OLD")
     }
 
+    // MARK: - Recheck
+
     func testRecheckUpdatesMembershipAndDropsRefundedKeys() async throws {
         let s = store()
-        s.save(.init(plan: .drive, key: "K", membershipActive: true), now: now)
-        try await s.recheck(now: now) { _, _ in .valid(membershipActive: false) }
+        s.save(.init(plan: .drive, key: "K", membershipActive: true, issuer: .gumroad), now: now)
+        try await s.recheck(now: now, polar: noPolar) { _, _ in .valid(membershipActive: false) }
         XCTAssertEqual(s.access(now: now), .notStarted)
 
-        s.save(.init(plan: .pro, key: "K", membershipActive: false), now: now)
-        try await s.recheck(now: now) { _, _ in throw LicenseStore.LicenseError.refunded }
+        s.save(.init(plan: .pro, key: "K", membershipActive: false, issuer: .gumroad), now: now)
+        try await s.recheck(now: now, polar: noPolar) { _, _ in throw LicenseStore.LicenseError.refunded }
         XCTAssertNil(s.licenseKey)
     }
 
     /// Being offline must never take away what was paid for.
     func testRecheckKeepsStateWhenGumroadIsUnreachable() async {
         let s = store()
-        s.save(.init(plan: .drive, key: "K", membershipActive: true), now: now)
-        try? await s.recheck(now: now) { _, _ in throw LicenseStore.LicenseError.network(503) }
+        s.save(.init(plan: .drive, key: "K", membershipActive: true, issuer: .gumroad), now: now)
+        try? await s.recheck(now: now, polar: noPolar) { _, _ in throw LicenseStore.LicenseError.network(503) }
         XCTAssertEqual(s.access(now: now), .proAndDrive)
+    }
+
+    /// Installs from before Polar stored no issuer; their keys came from Gumroad.
+    func testStoredKeyWithoutIssuerRechecksWithGumroad() async throws {
+        let s = store()
+        s.defaults?.set("K", forKey: "licenseKey")
+        s.defaults?.set("pro", forKey: "licensePlan")
+        XCTAssertEqual(s.issuer, .gumroad)
+        // Gumroad reporting a refund clears the key; Polar would fail the test if asked.
+        try await s.recheck(now: now, polar: noPolar) { plan, key in
+            XCTAssertEqual(plan, .pro)
+            XCTAssertEqual(key, "K")
+            throw LicenseStore.LicenseError.refunded
+        }
+        XCTAssertNil(s.licenseKey)
+    }
+
+    /// A lapsed Polar subscription keeps the key so a renewal comes back by itself.
+    func testRecheckKeepsLapsedPolarDriveKeyAndRestoresIt() async throws {
+        let s = store()
+        let benefit = driveBenefit
+        s.save(.init(plan: .drive, key: "D", membershipActive: true, issuer: .polar), now: now)
+        try await s.recheck(now: now, polar: { _ in .refused }, gumroad: noGumroad)
+        XCTAssertEqual(s.licenseKey, "D")
+        XCTAssertEqual(s.plan, .drive)
+        XCTAssertEqual(s.access(now: now), .notStarted)
+
+        try await s.recheck(now: now, polar: { _ in .granted(benefitID: benefit) }, gumroad: noGumroad)
+        XCTAssertEqual(s.access(now: now), .proAndDrive)
+    }
+
+    func testRecheckClearsRefusedPolarProKey() async throws {
+        let s = store()
+        s.save(.init(plan: .pro, key: "P", membershipActive: true, issuer: .polar), now: now)
+        try await s.recheck(now: now, polar: { _ in .refused }, gumroad: noGumroad)
+        XCTAssertNil(s.licenseKey)
+    }
+
+    /// No silent plan change: a stored Pro key now reporting Drive's benefit is a no for Pro.
+    func testRecheckTreatsDifferentBenefitAsNo() async throws {
+        let s = store()
+        let benefit = driveBenefit
+        s.save(.init(plan: .pro, key: "P", membershipActive: true, issuer: .polar), now: now)
+        try await s.recheck(now: now, polar: { _ in .granted(benefitID: benefit) }, gumroad: noGumroad)
+        XCTAssertNil(s.licenseKey)
+    }
+
+    func testRecheckKeepsPolarStateWhenUnreachable() async {
+        let s = store()
+        s.save(.init(plan: .drive, key: "D", membershipActive: true, issuer: .polar), now: now)
+        try? await s.recheck(now: now, polar: { _ in throw LicenseStore.LicenseError.network(503) }, gumroad: noGumroad)
+        XCTAssertEqual(s.access(now: now), .proAndDrive)
+    }
+
+    func testClearRemovesIssuer() {
+        let s = store()
+        s.save(.init(plan: .pro, key: "P", membershipActive: true, issuer: .polar), now: now)
+        s.clear()
+        XCTAssertNil(s.issuer)
     }
 }

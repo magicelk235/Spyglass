@@ -6,16 +6,21 @@ import Foundation
 /// Look and thumbnail extensions only read it, through `access(now:)`. It all
 /// lives in the shared App Group defaults so every process sees the same state.
 ///
-/// Plans, one Gumroad product each:
+/// Plans:
 /// - `pro`: one-time purchase, every format preview.
 /// - `drive`: monthly membership, format previews plus rendered Google
 ///   Drive previews while the subscription is active.
 /// - `legacy`: a Spyglass 1.0 key; those buyers keep Drive previews for life.
+///
+/// New keys are sold on Polar, one license-key benefit per plan. Keys sold
+/// earlier on Gumroad (one product per plan, plus 1.0) keep working and are
+/// still checked with Gumroad.
 public struct LicenseStore {
 
     public enum Plan: String, CaseIterable, Sendable {
         case drive, pro, legacy
 
+        /// The Gumroad product that sold this plan's older keys.
         public var productID: String {
             switch self {
             case .pro:    return "FwpNXeTGeL3EaXXcPQo0Fg=="
@@ -23,6 +28,25 @@ public struct LicenseStore {
             case .legacy: return "YMTEmgQNPRDS27c2B_bflw=="
             }
         }
+
+        /// The Polar license-key benefit for this plan. 1.0 was never sold on Polar.
+        public var polarBenefitID: String? {
+            switch self {
+            case .pro:    return "87a7e00e-fbc4-4419-861d-f9013406a6f7"
+            case .drive:  return "ba0435a3-c11c-4581-8f4b-78689062dd88"
+            case .legacy: return nil
+            }
+        }
+
+        /// nil for a benefit from another product on the same Polar account.
+        public static func forPolarBenefit(_ id: String) -> Plan? {
+            allCases.first { $0.polarBenefitID == id }
+        }
+    }
+
+    /// Where the stored key was bought, and so who confirms it.
+    public enum Issuer: String, Sendable {
+        case polar, gumroad
     }
 
     public enum Access: Equatable, Sendable {
@@ -48,9 +72,14 @@ public struct LicenseStore {
     public static let buyProURL = URL(string: "https://magicelk235.gumroad.com/l/spyglass")!
     public static let buyDriveURL = URL(string: "https://magicelk235.gumroad.com/l/spyglass-drive")!
 
+    /// Not a secret: Polar's customer-portal license endpoints only need it to
+    /// know which seller's keys to look in.
+    public static let polarOrganizationID = "760e4bf4-f5a2-4a74-8a22-66da54f6f33b"
+
     static let proKey = "isPro"
     static let keyKey = "licenseKey"
     static let planKey = "licensePlan"
+    static let issuerKey = "licenseIssuer"
     static let membershipKey = "membershipActive"
     static let checkedKey = "licenseCheckedAt"
     static let trialKey = "trialStartedAt"
@@ -75,6 +104,12 @@ public struct LicenseStore {
         guard licenseKey != nil else { return nil }
         if let raw = defaults?.string(forKey: Self.planKey) { return Plan(rawValue: raw) }
         return defaults?.bool(forKey: Self.proKey) == true ? .legacy : nil
+    }
+
+    /// Keys stored before Polar have no issuer; they all came from Gumroad.
+    public var issuer: Issuer? {
+        guard licenseKey != nil else { return nil }
+        return defaults?.string(forKey: Self.issuerKey).flatMap(Issuer.init(rawValue:)) ?? .gumroad
     }
 
     public var membershipActive: Bool { defaults?.bool(forKey: Self.membershipKey) ?? false }
@@ -112,29 +147,33 @@ public struct LicenseStore {
         var plan: Plan
         var key: String
         var membershipActive: Bool
+        var issuer: Issuer
     }
 
     func save(_ saved: Saved, now: Date) {
         defaults?.set(saved.key, forKey: Self.keyKey)
         defaults?.set(saved.plan.rawValue, forKey: Self.planKey)
+        defaults?.set(saved.issuer.rawValue, forKey: Self.issuerKey)
         defaults?.set(saved.membershipActive, forKey: Self.membershipKey)
         defaults?.set(now, forKey: Self.checkedKey)
         defaults?.removeObject(forKey: Self.proKey)
     }
 
-    /// Removes the license (the user deactivates, or Gumroad reports a refund).
+    /// Removes the license (the user deactivates, or the store reports a refund).
     /// The trial clock stays: deactivating never restarts the free week.
     public func clear() {
-        for key in [Self.proKey, Self.keyKey, Self.planKey, Self.membershipKey, Self.checkedKey] {
+        for key in [Self.proKey, Self.keyKey, Self.planKey, Self.issuerKey, Self.membershipKey, Self.checkedKey] {
             defaults?.removeObject(forKey: key)
         }
     }
 
-    // MARK: - Gumroad
+    // MARK: - Checking keys
 
     public enum LicenseError: Error, LocalizedError, Equatable {
         case invalidKey
         case refunded
+        /// A Polar key for another app on the same account (Lector, Viaduct).
+        case otherProduct
         case network(Int)
         case malformed
 
@@ -142,8 +181,9 @@ public struct LicenseStore {
             switch self {
             case .invalidKey:     return "License key not recognized."
             case .refunded:       return "This purchase was refunded or disputed."
-            case .network(let c): return c == 0 ? "Couldn't reach Gumroad." : "Couldn't reach Gumroad (HTTP \(c))."
-            case .malformed:      return "Unexpected response from Gumroad."
+            case .otherProduct:   return "This key is for another Magicelklabs app."
+            case .network(let c): return c == 0 ? "Couldn't reach the license server." : "Couldn't reach the license server (HTTP \(c))."
+            case .malformed:      return "Unexpected response from the license server."
             }
         }
     }
@@ -158,39 +198,112 @@ public struct LicenseStore {
     /// doesn't know the key.
     public typealias Verifier = @Sendable (Plan, String) async throws -> Verdict?
 
-    /// Tries the key against each product until one recognizes it, then
-    /// stores it. Throws `invalidKey` when no product does; leaves any stored
-    /// license untouched on failure.
+    public enum PolarAnswer: Equatable, Sendable {
+        /// The key is live and was sold under this benefit.
+        case granted(benefitID: String)
+        /// Polar never issued the key, so it may be from Gumroad.
+        case unknown
+        /// Polar issued the key, but it is revoked, disabled or expired: a
+        /// refund, or a subscription that ended.
+        case refused
+    }
+
+    /// Asks Polar about a key. Throws when Polar can't give an answer.
+    public typealias PolarVerifier = @Sendable (String) async throws -> PolarAnswer
+
+    /// Asks Polar first. Only a key Polar has never heard of is tried against
+    /// each Gumroad product; an outage stops here, so a Polar key is never
+    /// misreported as unknown. Leaves any stored license untouched on failure.
     @discardableResult
     public func activate(key: String, now: Date = Date(),
-                         verify: Verifier = LicenseStore.gumroad) async throws -> Plan {
+                         polar: PolarVerifier = LicenseStore.polar,
+                         gumroad: Verifier = LicenseStore.gumroad) async throws -> Plan {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch try await polar(trimmed) {
+        case .granted(let benefit):
+            guard let plan = Plan.forPolarBenefit(benefit) else { throw LicenseError.otherProduct }
+            save(Saved(plan: plan, key: trimmed, membershipActive: true, issuer: .polar), now: now)
+            return plan
+        case .refused:
+            throw LicenseError.invalidKey
+        case .unknown:
+            break
+        }
         for plan in Plan.allCases {
-            if case .valid(let active)? = try await verify(plan, trimmed) {
-                save(Saved(plan: plan, key: trimmed, membershipActive: active), now: now)
+            if case .valid(let active)? = try await gumroad(plan, trimmed) {
+                save(Saved(plan: plan, key: trimmed, membershipActive: active, issuer: .gumroad), now: now)
                 return plan
             }
         }
         throw LicenseError.invalidKey
     }
 
-    /// Re-asks Gumroad about the stored key: picks up a lapsed or renewed
+    /// Re-asks the store that sold the key: picks up a lapsed or renewed
     /// membership and drops refunded keys. A network failure throws and changes
     /// nothing, so being offline never removes paid access.
-    public func recheck(now: Date = Date(), verify: Verifier = LicenseStore.gumroad) async throws {
-        guard let key = licenseKey, let plan else { return }
-        do {
-            guard case .valid(let active)? = try await verify(plan, key) else {
+    public func recheck(now: Date = Date(),
+                        polar: PolarVerifier = LicenseStore.polar,
+                        gumroad: Verifier = LicenseStore.gumroad) async throws {
+        guard let key = licenseKey, let plan, let issuer else { return }
+        switch issuer {
+        case .polar:
+            if case .granted(let benefit) = try await polar(key), benefit == plan.polarBenefitID {
+                save(Saved(plan: plan, key: key, membershipActive: true, issuer: .polar), now: now)
+            } else if plan == .drive {
+                // Kept, so a renewed subscription comes back on the next check
+                // and Settings can say the membership ended.
+                save(Saved(plan: plan, key: key, membershipActive: false, issuer: .polar), now: now)
+            } else {
                 clear()
-                return
             }
-            save(Saved(plan: plan, key: key, membershipActive: active), now: now)
-        } catch LicenseError.refunded, LicenseError.invalidKey {
-            clear()
+        case .gumroad:
+            do {
+                guard case .valid(let active)? = try await gumroad(plan, key) else {
+                    clear()
+                    return
+                }
+                save(Saved(plan: plan, key: key, membershipActive: active, issuer: .gumroad), now: now)
+            } catch LicenseError.refunded, LicenseError.invalidKey {
+                clear()
+            }
         }
     }
 
-    /// The live verifier: Gumroad's license API.
+    /// The live Polar verifier: the customer-portal endpoint, which needs no
+    /// access token. No Polar-Version header: Polar retires a pinned version
+    /// after about nine months and then answers 404 to everything.
+    public static let polar: PolarVerifier = { key in
+        var req = URLRequest(url: URL(string: "https://api.polar.sh/v1/customer-portal/license-keys/validate")!)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["key": key, "organization_id": polarOrganizationID])
+        let (data, resp): (Data, URLResponse)
+        do {
+            (data, resp) = try await URLSession.shared.data(for: req)
+        } catch {
+            throw LicenseError.network(0)
+        }
+        return try polarAnswer(status: (resp as? HTTPURLResponse)?.statusCode ?? 0, body: data)
+    }
+
+    /// Pure decision from Polar's response, split out for tests. Only Polar's
+    /// own error bodies count as a no; an outage or a proxy's page keeps the key.
+    static func polarAnswer(status: Int, body: Data) throws -> PolarAnswer {
+        let json = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+        if status == 200 {
+            guard let benefit = json?["benefit_id"] as? String else { throw LicenseError.malformed }
+            return .granted(benefitID: benefit)
+        }
+        guard status == 404, json?["error"] as? String == "ResourceNotFound",
+              let detail = json?["detail"] as? String else {
+            throw LicenseError.network(status)
+        }
+        // Polar's stock detail for a key it doesn't have at all.
+        return detail == "Not found" ? .unknown : .refused
+    }
+
+    /// The live Gumroad verifier, for keys bought there before Polar.
     public static let gumroad: Verifier = { plan, key in
         var req = URLRequest(url: URL(string: "https://api.gumroad.com/v2/licenses/verify")!)
         req.httpMethod = "POST"
