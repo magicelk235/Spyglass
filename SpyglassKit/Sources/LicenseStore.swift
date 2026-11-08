@@ -69,8 +69,9 @@ public struct LicenseStore {
 
     public static let trialDays = 7
 
-    public static let buyProURL = URL(string: "https://magicelk235.gumroad.com/l/spyglass")!
-    public static let buyDriveURL = URL(string: "https://magicelk235.gumroad.com/l/spyglass-drive")!
+    /// Polar checkout links, one per plan.
+    public static let buyProURL = URL(string: "https://buy.polar.sh/polar_cl_DfMvRZc8P5OMZIzuY8duXI1SfOvQdELriv42m0La9Dm")!
+    public static let buyDriveURL = URL(string: "https://buy.polar.sh/polar_cl_q0t2tPuZCbeIbnkku4ovVpGhCtZZuUeUsCMK52IcjnU")!
 
     /// Not a secret: Polar's customer-portal license endpoints only need it to
     /// know which seller's keys to look in.

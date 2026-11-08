@@ -124,14 +124,12 @@ public struct UsageStats {
     }
 }
 
-/// The Gumroad checkout link the app opens when the user presses Buy.
+/// The Polar checkout link the app opens when the user presses Buy.
 ///
-/// `wanted=true` skips the product page and opens checkout. The UTM tags are
-/// the only usage data Spyglass ever shares, and only on that click: which
-/// button, how far into the trial, the most-used format, and a coarse bucket
-/// of this week's previews. Gumroad files each tag combination as a UTM link
-/// with its own clicks, sales and conversion rate. It records nothing unless
-/// source, medium and campaign are all present.
+/// The UTM tags are the only usage data Spyglass ever shares, and only on
+/// that click: which button, how far into the trial, the most-used format,
+/// and a coarse bucket of this week's previews. Polar copies them into the
+/// order's metadata, so each sale says what kind of use led to it.
 public enum CheckoutLink {
 
     public enum Button: String, Sendable {
@@ -146,7 +144,6 @@ public enum CheckoutLink {
         let base = plan == .pro ? LicenseStore.buyProURL : LicenseStore.buyDriveURL
         var parts = URLComponents(url: base, resolvingAgainstBaseURL: false)!
         parts.queryItems = [
-            URLQueryItem(name: "wanted", value: "true"),
             URLQueryItem(name: "utm_source", value: "spyglass-app"),
             URLQueryItem(name: "utm_medium", value: button.rawValue),
             URLQueryItem(name: "utm_campaign", value: campaign(access)),
@@ -165,8 +162,8 @@ public enum CheckoutLink {
         }
     }
 
-    /// Coarse on purpose: a handful of Gumroad link rows, and nothing close
-    /// to a per-user fingerprint.
+    /// Coarse on purpose: a handful of values per tag, and nothing close to a
+    /// per-user fingerprint.
     static func bucket(_ total: Int) -> String {
         switch total {
         case ..<1:    return "0"

@@ -107,19 +107,18 @@ final class UsageStatsTests: XCTestCase {
         XCTAssertEqual(CheckoutLink.campaign(.pro), "pro")
     }
 
-    /// The link must carry all three of source, medium and campaign, or
-    /// Gumroad doesn't record the visit; and go straight to checkout.
+    /// The link opens the plan's Polar checkout and carries every tag, which
+    /// Polar copies into the order's metadata.
     func testLinkCarriesCheckoutAndAllTags() throws {
         let s = stats()
         for _ in 0..<12 { s.record(.markdown, now: now) }
         s.record(.code, now: now)
         let url = CheckoutLink.url(plan: .pro, button: .pro, access: .trial(daysLeft: 2), week: s.week(now: now))
         let parts = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
-        XCTAssertEqual(parts.host, "magicelk235.gumroad.com")
-        XCTAssertEqual(parts.path, "/l/spyglass")
+        XCTAssertEqual(parts.host, "buy.polar.sh")
+        XCTAssertEqual(parts.path, "/polar_cl_DfMvRZc8P5OMZIzuY8duXI1SfOvQdELriv42m0La9Dm")
         let query = Dictionary(uniqueKeysWithValues: (parts.queryItems ?? []).map { ($0.name, $0.value ?? "") })
         XCTAssertEqual(query, [
-            "wanted": "true",
             "utm_source": "spyglass-app",
             "utm_medium": "pro",
             "utm_campaign": "trial-late",
@@ -132,7 +131,7 @@ final class UsageStatsTests: XCTestCase {
         let empty = CheckoutLink.url(plan: .drive, button: .driveUpgrade, access: .pro, week: stats().week(now: now))
         XCTAssertTrue(empty.absoluteString.contains("utm_content=none"))
         XCTAssertTrue(empty.absoluteString.contains("utm_medium=drive-upgrade"))
-        XCTAssertTrue(empty.absoluteString.hasPrefix("https://magicelk235.gumroad.com/l/spyglass-drive?"))
+        XCTAssertTrue(empty.absoluteString.hasPrefix("https://buy.polar.sh/polar_cl_q0t2tPuZCbeIbnkku4ovVpGhCtZZuUeUsCMK52IcjnU?"))
 
         let s = stats()
         for _ in 0..<3 { s.recordDrive(now: now) }
