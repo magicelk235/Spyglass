@@ -88,7 +88,7 @@ struct PlanSettingsPane: View {
         }
     }
 
-    /// Opens Gumroad checkout directly, tagged with this week's usage (see
+    /// Opens Polar checkout directly, tagged with this week's usage (see
     /// CheckoutLink for exactly what is shared).
     private func checkout(_ plan: LicenseStore.Plan, _ button: CheckoutLink.Button) -> URL {
         CheckoutLink.url(plan: plan, button: button, access: license.access, week: week)

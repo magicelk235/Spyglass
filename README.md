@@ -37,7 +37,7 @@ After the trial, files without a plan still open in Quick Look as plain text or 
 
 If you bought Spyglass 1.0, your key still works and now includes Spyglass Drive at no charge.
 
-Buy at [magicelklabs.com/spyglass](https://magicelklabs.com/spyglass), then paste the license key from your Gumroad receipt into Spyglass Settings, under Plan. Settings opens from the Spyglass menu-bar icon.
+Buy at [magicelklabs.com/spyglass](https://magicelklabs.com/spyglass), then paste your license key into Spyglass Settings, under Plan. Polar keeps the key on your purchases page at [polar.sh/magicelklabs/portal](https://polar.sh/magicelklabs/portal); sign in there with the email you bought with. Keys bought on Gumroad before the move to Polar still work. Settings opens from the Spyglass menu-bar icon.
 
 ## Install
 
@@ -58,7 +58,7 @@ For Google Drive previews on the Drive plan, open Settings from the menu-bar ico
 
 Format previews happen entirely on your Mac and never touch the network. Spyglass reads the file you're previewing and, when needed, files next to it (images in a Markdown file, sizes inside a folder). The only thing it writes is a small tally of how many previews it showed this week, by format, which Settings displays. File names aren't recorded.
 
-Only two things leave your Mac. On the Drive plan, Spyglass asks Google for your own documents with read-only access and keeps the sign-in token in your Keychain. And when you press a Buy button in the app, the Gumroad checkout link includes how far into the trial you are, your most-used format and a rough count of this week's previews, so we can tell which kinds of use lead to a purchase. Nothing is sent at any other time. There is no Spyglass server.
+Only two things leave your Mac. On the Drive plan, Spyglass asks Google for your own documents with read-only access and keeps the sign-in token in your Keychain. And when you press a Buy button in the app, the Polar checkout link includes how far into the trial you are, your most-used format and a rough count of this week's previews, so we can tell which kinds of use lead to a purchase. Nothing is sent at any other time. There is no Spyglass server.
 
 ## License
 

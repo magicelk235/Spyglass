@@ -5,8 +5,9 @@ import SpyglassKit
 private let log = Logger(subsystem: "com.spyglass.app", category: "license")
 
 /// The app's view of `LicenseStore`. Starts the trial on first launch and
-/// re-asks Gumroad about the stored key at launch and once a day, so a lapsed
-/// Drive membership or a refund takes effect without the user doing anything.
+/// re-asks the store that sold the key (Polar, or Gumroad for older keys) at
+/// launch and once a day, so a lapsed Drive membership or a refund takes
+/// effect without the user doing anything.
 @MainActor
 final class LicenseModel: ObservableObject {
     @Published private(set) var access: LicenseStore.Access = .notStarted
