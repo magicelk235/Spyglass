@@ -11,9 +11,9 @@ configFiles:
 
 settings:
   base:
-    MARKETING_VERSION: "2.0.0"
+    MARKETING_VERSION: "2.1.0"
     # Sparkle compares CFBundleVersion, so it must grow every release.
-    CURRENT_PROJECT_VERSION: "4"
+    CURRENT_PROJECT_VERSION: "5"
     SWIFT_VERSION: "5.0"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: "V8K8L3ZSD5"
